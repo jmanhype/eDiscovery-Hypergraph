@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,9 +9,27 @@ import json
 import logging
 import uuid
 import os
-from motor.motor_asyncio import AsyncIOMotorClient
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 import nats
 import openai
+from datetime import datetime
+
+# Import our new models and CRUD
+try:
+    from .models import (
+        Document, DocumentStatus, DocumentCreateRequest, DocumentUpdateRequest, DocumentSearchRequest,
+        Case, Batch, Entity, User, AuditLog,
+        BatchCreateRequest, WorkflowInstanceRequest
+    )
+    from .crud import DocumentCRUD, CaseCRUD, BatchCRUD, EntityCRUD
+except ImportError:
+    # When running directly, not as module
+    from models import (
+        Document, DocumentStatus, DocumentCreateRequest, DocumentUpdateRequest, DocumentSearchRequest,
+        Case, Batch, Entity, User, AuditLog,
+        BatchCreateRequest, WorkflowInstanceRequest
+    )
+    from crud import DocumentCRUD, CaseCRUD, BatchCRUD, EntityCRUD
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -141,7 +159,7 @@ async def process_emails(request: ProcessEmailsRequest):
                 batch_doc = {
                     "batch_id": batch_id,
                     "processed_count": len(results),
-                    "results": [result.dict() for result in results],
+                    "results": [result.model_dump() for result in results],
                     "timestamp": "2024-01-15T10:30:00Z"  # Would use datetime.utcnow() in production
                 }
                 await collection.insert_one(batch_doc)
@@ -487,3 +505,340 @@ async def hello():
 async def serve_demo():
     """Serve the eDiscovery demo UI"""
     return FileResponse("/app/ediscovery_demo.html")
+
+
+# ============================================================================
+# NEW CRUD ENDPOINTS
+# ============================================================================
+
+# Dependency to get database
+async def get_db() -> AsyncIOMotorDatabase:
+    if not mongo_client:
+        raise HTTPException(status_code=503, detail="Database connection not available")
+    return mongo_client.ediscovery
+
+
+# Document endpoints
+@app.post("/api/documents", response_model=Document)
+async def create_document(
+    request: DocumentCreateRequest,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Create a new document"""
+    doc_crud = DocumentCRUD(db)
+    
+    # Create document
+    document = Document(
+        case_id=request.case_id,
+        title=request.title,
+        content=request.content,
+        source=request.source,
+        author=request.author,
+        tags=request.tags
+    )
+    
+    created_doc = await doc_crud.create(document)
+    
+    # Update case document count
+    case_crud = CaseCRUD(db)
+    await case_crud.update_document_count(request.case_id, 1)
+    
+    # Process document asynchronously
+    asyncio.create_task(process_document_async(str(created_doc.id), created_doc.content))
+    
+    return created_doc
+
+
+@app.get("/api/documents/{document_id}", response_model=Document)
+async def get_document(
+    document_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Get document by ID"""
+    doc_crud = DocumentCRUD(db)
+    document = await doc_crud.get(document_id)
+    
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    return document
+
+
+@app.put("/api/documents/{document_id}", response_model=Document)
+async def update_document(
+    document_id: str,
+    request: DocumentUpdateRequest,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Update document metadata"""
+    doc_crud = DocumentCRUD(db)
+    
+    update_data = request.model_dump(exclude_unset=True)
+    document = await doc_crud.update(document_id, update_data)
+    
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    return document
+
+
+@app.delete("/api/documents/{document_id}")
+async def delete_document(
+    document_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Soft delete document"""
+    doc_crud = DocumentCRUD(db)
+    
+    success = await doc_crud.delete(document_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    return {"status": "deleted", "document_id": document_id}
+
+
+@app.post("/api/documents/search", response_model=List[Document])
+async def search_documents(
+    search_params: DocumentSearchRequest,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Search documents with filters"""
+    doc_crud = DocumentCRUD(db)
+    documents = await doc_crud.search(search_params)
+    return documents
+
+
+@app.get("/api/documents/{document_id}/entities", response_model=List[Entity])
+async def get_document_entities(
+    document_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Get entities extracted from document"""
+    entity_crud = EntityCRUD(db)
+    entities = await entity_crud.get_document_entities(document_id)
+    return entities
+
+
+# Case endpoints
+@app.post("/api/cases", response_model=Case)
+async def create_case(
+    case: Case,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Create new case/matter"""
+    case_crud = CaseCRUD(db)
+    return await case_crud.create(case)
+
+
+@app.get("/api/cases/{case_id}", response_model=Case)
+async def get_case(
+    case_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Get case details"""
+    case_crud = CaseCRUD(db)
+    case = await case_crud.get(case_id)
+    
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    
+    return case
+
+
+@app.get("/api/cases", response_model=List[Case])
+async def list_cases(
+    user_id: Optional[str] = Query(None),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """List cases (optionally filtered by user)"""
+    case_crud = CaseCRUD(db)
+    
+    if user_id:
+        return await case_crud.list_user_cases(user_id)
+    
+    # For now, return all active cases
+    cursor = db.cases.find({"status": "active"})
+    cases = []
+    async for case_doc in cursor:
+        cases.append(Case(**case_doc))
+    
+    return cases
+
+
+# Batch endpoints
+@app.post("/api/batches", response_model=Batch)
+async def create_batch(
+    request: BatchCreateRequest,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Create document processing batch"""
+    batch_crud = BatchCRUD(db)
+    
+    batch = Batch(
+        case_id=request.case_id,
+        document_ids=request.document_ids,
+        total_documents=len(request.document_ids),
+        started_at=datetime.utcnow()
+    )
+    
+    created_batch = await batch_crud.create(batch)
+    
+    # Start processing
+    asyncio.create_task(process_batch_async(str(created_batch.id), request.document_ids))
+    
+    return created_batch
+
+
+@app.get("/api/batches/{batch_id}", response_model=Batch)
+async def get_batch(
+    batch_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Get batch status"""
+    batch_crud = BatchCRUD(db)
+    batch = await batch_crud.get(batch_id)
+    
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    
+    return batch
+
+
+# Entity endpoints
+@app.get("/api/entities", response_model=List[Entity])
+async def search_entities(
+    name: Optional[str] = Query(None),
+    entity_type: Optional[str] = Query(None),
+    min_frequency: int = Query(1),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Search entities across all documents"""
+    entity_crud = EntityCRUD(db)
+    
+    entities = await entity_crud.search_entities(
+        name_query=name,
+        entity_type=entity_type,
+        min_frequency=min_frequency
+    )
+    
+    return entities
+
+
+@app.get("/api/entities/{entity_id}/documents")
+async def get_entity_documents(
+    entity_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Get all documents containing an entity"""
+    entity_crud = EntityCRUD(db)
+    doc_ids = await entity_crud.get_entity_documents(entity_id)
+    
+    # Get document details
+    doc_crud = DocumentCRUD(db)
+    documents = []
+    
+    for doc_id in doc_ids:
+        doc = await doc_crud.get(doc_id)
+        if doc:
+            documents.append(doc)
+    
+    return {"entity_id": entity_id, "documents": documents}
+
+
+# Workflow endpoints
+@app.post("/api/workflows/start")
+async def start_workflow(
+    request: WorkflowInstanceRequest,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Start a new workflow instance"""
+    workflow_id = str(uuid.uuid4())
+    
+    # Store workflow instance
+    await db.workflow_instances.insert_one({
+        "workflow_id": workflow_id,
+        "workflow_name": request.workflow_name,
+        "case_id": request.case_id,
+        "input_data": request.input_data,
+        "assigned_users": request.assigned_users,
+        "status": "running",
+        "created_at": datetime.utcnow()
+    })
+    
+    # TODO: Integrate with Elixir workflow engine via NATS
+    
+    return {
+        "workflow_id": workflow_id,
+        "status": "started",
+        "workflow_name": request.workflow_name
+    }
+
+
+# Helper functions for async processing
+async def process_document_async(document_id: str, content: str):
+    """Process document in background"""
+    try:
+        # Create a single-document batch
+        batch_id = str(uuid.uuid4())
+        
+        # Process through existing pipeline
+        email = Email(
+            subject="Document Analysis",
+            body=content
+        )
+        
+        result = await process_single_email(email, batch_id)
+        
+        # Update document with results
+        if mongo_client:
+            db = mongo_client.ediscovery
+            doc_crud = DocumentCRUD(db)
+            
+            update_data = {
+                "status": DocumentStatus.COMPLETED,
+                "summary": result.summary,
+                "privilege_type": "attorney-client" if result.tags.get("privileged") else "none",
+                "has_significant_evidence": result.tags.get("significant_evidence", False)
+            }
+            
+            await doc_crud.update(document_id, update_data)
+            
+            # Add entities
+            await doc_crud.add_entities(document_id, result.entities)
+            
+    except Exception as e:
+        logger.error(f"Failed to process document {document_id}: {str(e)}")
+        
+        # Mark as failed
+        if mongo_client:
+            db = mongo_client.ediscovery
+            doc_crud = DocumentCRUD(db)
+            await doc_crud.update(document_id, {"status": DocumentStatus.FAILED})
+
+
+async def process_batch_async(batch_id: str, document_ids: List[str]):
+    """Process batch of documents"""
+    if not mongo_client:
+        return
+    
+    db = mongo_client.ediscovery
+    batch_crud = BatchCRUD(db)
+    doc_crud = DocumentCRUD(db)
+    
+    for doc_id in document_ids:
+        try:
+            # Get document
+            doc = await doc_crud.get(doc_id)
+            if not doc:
+                await batch_crud.update_progress(batch_id, failed=1)
+                continue
+            
+            # Process
+            await process_document_async(doc_id, doc.content)
+            
+            # Update progress
+            await batch_crud.update_progress(batch_id, processed=1)
+            
+        except Exception as e:
+            logger.error(f"Failed to process document {doc_id} in batch {batch_id}: {str(e)}")
+            await batch_crud.update_progress(batch_id, failed=1)

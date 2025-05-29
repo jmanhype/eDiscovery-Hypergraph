@@ -16,7 +16,7 @@ defmodule A2aAgentWebWeb.Operators.EdiscoveryProcessOperator do
   end
 
   defp get_email_content(input) when is_map(input) do
-    Map.get(input, "email", Map.get(input, "content", ""))
+    Map.get(input, "email", Map.get(input, "email_text", Map.get(input, "content", "")))
   end
   defp get_email_content(input) when is_binary(input), do: input
 
