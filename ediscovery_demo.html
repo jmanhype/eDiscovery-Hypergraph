@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eDiscovery Agent MVP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">
+                eDiscovery Agent MVP
+            </h1>
+            <p class="text-center text-gray-600 mb-8">
+                AI-powered email analysis for legal eDiscovery using Hypergraph Agents Umbrella
+            </p>
+
+            <!-- Upload Section -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Email Processing</h2>
+                
+                <!-- Sample Email Input -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Sample Email (or paste your own):
+                    </label>
+                    <textarea 
+                        id="emailInput" 
+                        rows="8" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="From: alice@company.com&#10;To: bob@company.com&#10;Subject: Confidential Project Discussion&#10;Date: 2024-01-15T10:30:00Z&#10;&#10;Hi Bob,&#10;&#10;I wanted to discuss the confidential matters regarding Project X. Our legal team has advised us to proceed with caution given the sensitive nature of the client documents.&#10;&#10;Best regards,&#10;Alice"
+                    >From: alice@company.com
+To: bob@company.com
+Subject: Confidential Project Discussion
+Date: 2024-01-15T10:30:00Z
+
+Hi Bob,
+
+I wanted to discuss the confidential matters regarding Project X. Our legal team has advised us to proceed with caution given the sensitive nature of the client documents.
+
+Best regards,
+Alice</textarea>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex space-x-4 mb-4">
+                    <button 
+                        id="processBtn" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium transition duration-200"
+                        onclick="processEmails()"
+                    >
+                        Process Email
+                    </button>
+                    <button 
+                        id="loadSampleBtn" 
+                        class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-md font-medium transition duration-200"
+                        onclick="loadSample()"
+                    >
+                        Load Sample Format
+                    </button>
+                    <button 
+                        id="healthBtn" 
+                        class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md font-medium transition duration-200"
+                        onclick="checkHealth()"
+                    >
+                        Check Health
+                    </button>
+                </div>
+
+                <!-- Status -->
+                <div id="status" class="text-sm text-gray-600 mb-4"></div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" class="bg-white rounded-lg shadow-md p-6 hidden">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Analysis Results</h2>
+                <div id="results"></div>
+            </div>
+
+            <!-- API Documentation -->
+            <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">API Endpoints</h2>
+                <div class="space-y-2 text-sm">
+                    <div><strong>POST /api/ediscovery/process</strong> - Process emails for eDiscovery analysis</div>
+                    <div><strong>GET /api/ediscovery/health</strong> - Check service health</div>
+                    <div><strong>GET /api/ediscovery/sample</strong> - Get sample email format</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:4000/api';
+
+        function setStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            const colorClass = type === 'error' ? 'text-red-600' : 
+                              type === 'success' ? 'text-green-600' : 'text-blue-600';
+            statusEl.className = `text-sm ${colorClass} mb-4`;
+            statusEl.textContent = message;
+        }
+
+        function parseEmailText(emailText) {
+            const lines = emailText.split('\n');
+            const email = {
+                from: '',
+                to: [''],
+                subject: '',
+                date: '',
+                body: ''
+            };
+
+            let bodyStartIndex = 0;
+            
+            // Parse headers
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line === '') {
+                    bodyStartIndex = i + 1;
+                    break;
+                }
+                
+                if (line.toLowerCase().startsWith('from:')) {
+                    email.from = line.substring(5).trim();
+                } else if (line.toLowerCase().startsWith('to:')) {
+                    email.to = [line.substring(3).trim()];
+                } else if (line.toLowerCase().startsWith('subject:')) {
+                    email.subject = line.substring(8).trim();
+                } else if (line.toLowerCase().startsWith('date:')) {
+                    email.date = line.substring(5).trim();
+                }
+            }
+
+            // Parse body
+            email.body = lines.slice(bodyStartIndex).join('\n').trim();
+            
+            return email;
+        }
+
+        async function processEmails() {
+            const emailText = document.getElementById('emailInput').value.trim();
+            
+            if (!emailText) {
+                setStatus('Please enter an email to process', 'error');
+                return;
+            }
+
+            setStatus('Processing email...');
+            
+            try {
+                const email = parseEmailText(emailText);
+                
+                const response = await axios.post(`${API_BASE}/ediscovery/process`, {
+                    emails: [email]
+                });
+
+                setStatus('Email processed successfully!', 'success');
+                displayResults(response.data);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                setStatus(`Error: ${error.response?.data?.message || error.message}`, 'error');
+            }
+        }
+
+        async function checkHealth() {
+            setStatus('Checking health...');
+            
+            try {
+                const response = await axios.get(`${API_BASE}/ediscovery/health`);
+                setStatus('Service is healthy!', 'success');
+                console.log('Health check:', response.data);
+            } catch (error) {
+                setStatus(`Health check failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadSample() {
+            setStatus('Loading sample format...');
+            
+            try {
+                const response = await axios.get(`${API_BASE}/ediscovery/sample`);
+                setStatus('Sample format loaded', 'success');
+                console.log('Sample format:', response.data);
+                
+                // Update textarea with sample
+                const sample = response.data.sample_request.emails[0];
+                const sampleText = `From: ${sample.from}
+To: ${sample.to.join(', ')}
+Subject: ${sample.subject}
+Date: ${sample.date}
+
+${sample.body}`;
+                
+                document.getElementById('emailInput').value = sampleText;
+                
+            } catch (error) {
+                setStatus(`Failed to load sample: ${error.message}`, 'error');
+            }
+        }
+
+        function displayResults(data) {
+            const resultsSection = document.getElementById('resultsSection');
+            const resultsDiv = document.getElementById('results');
+            
+            if (data.results && data.results.length > 0) {
+                const result = data.results[0];
+                
+                resultsDiv.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="border-b pb-2">
+                            <h3 class="font-semibold text-lg">Email Analysis</h3>
+                            <p class="text-sm text-gray-600">Email ID: ${result.email_id}</p>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-medium text-gray-700">Email Metadata:</h4>
+                            <div class="bg-gray-50 p-3 rounded mt-1">
+                                <p><strong>From:</strong> ${result.metadata.from}</p>
+                                <p><strong>To:</strong> ${Array.isArray(result.metadata.to) ? result.metadata.to.join(', ') : result.metadata.to}</p>
+                                <p><strong>Subject:</strong> ${result.metadata.subject}</p>
+                                <p><strong>Date:</strong> ${result.metadata.date}</p>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-medium text-gray-700">AI Summary:</h4>
+                            <div class="bg-blue-50 p-3 rounded mt-1">
+                                <p>${result.summary}</p>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-medium text-gray-700">Classification Tags:</h4>
+                            <div class="flex space-x-2 mt-1">
+                                ${result.tags.privileged ? 
+                                    '<span class="px-2 py-1 bg-red-100 text-red-800 rounded text-sm">Privileged</span>' : 
+                                    '<span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-sm">Not Privileged</span>'
+                                }
+                                ${result.tags.significant_evidence ? 
+                                    '<span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-sm">Significant Evidence</span>' : 
+                                    '<span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-sm">No Significant Evidence</span>'
+                                }
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-medium text-gray-700">Extracted Entities:</h4>
+                            <div class="mt-1">
+                                ${result.entities.length > 0 ? 
+                                    result.entities.map(entity => 
+                                        `<span class="inline-block px-2 py-1 bg-green-100 text-green-800 rounded text-sm mr-2 mb-1">${entity.name} (${entity.type})</span>`
+                                    ).join('') :
+                                    '<span class="text-gray-500 text-sm">No entities extracted</span>'
+                                }
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                resultsSection.classList.remove('hidden');
+            } else {
+                resultsDiv.innerHTML = '<p class="text-gray-500">No results to display</p>';
+                resultsSection.classList.remove('hidden');
+            }
+        }
+
+        // Check health on page load
+        window.addEventListener('load', checkHealth);
+    </script>
+</body>
+</html>
