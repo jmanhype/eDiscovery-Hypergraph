@@ -1,0 +1,41 @@
+name: "eDiscovery Document Processing"
+description: "Process legal documents for discovery - summarize, classify, and extract entities"
+
+nodes:
+  - id: summarize
+    op: EdiscoverySummarizationOperator
+    params:
+      timeout: 15000
+    depends_on: []
+
+  - id: classify
+    op: EdiscoveryClassificationOperator
+    params:
+      timeout: 15000
+    depends_on: []
+
+  - id: extract_entities
+    op: EdiscoveryEntityExtractionOperator
+    params:
+      timeout: 15000
+    depends_on: []
+
+  - id: aggregate_results
+    op: EdiscoveryAggregationOperator
+    params:
+      timeout: 1000
+    depends_on: ["summarize", "classify", "extract_entities"]
+
+edges:
+  - "summarize->aggregate_results"
+  - "classify->aggregate_results"
+  - "extract_entities->aggregate_results"
+
+inputs:
+  email: "string"
+
+outputs:
+  summary: "string"
+  classification: "map"
+  entities: "list"
+  processed_at: "string"

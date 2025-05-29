@@ -1,0 +1,17 @@
+name: "Test Summarization"
+description: "Test just the summarization operator"
+
+nodes:
+  - id: summarize
+    op: EdiscoverySummarizationOperator
+    params:
+      timeout: 60000
+    depends_on: []
+
+edges: []
+
+inputs:
+  email: "string"
+
+outputs:
+  summary: "string"

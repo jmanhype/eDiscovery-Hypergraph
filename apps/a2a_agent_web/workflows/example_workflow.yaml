@@ -1,0 +1,15 @@
+# Workflow: example_workflow
+# Edit the nodes, edges, and parameters as needed.
+nodes:
+  step1:
+    op: MapOperator
+    params:
+      function: "&(&1 * 2)" # Example: doubles input
+  step2:
+    op: SequenceOperator
+    params:
+      steps: [step1]
+edges:
+  - [step1, step2]
+# inputs: {}
+# outputs: {}

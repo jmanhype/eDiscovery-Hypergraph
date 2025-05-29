@@ -1,0 +1,64 @@
+{
+  "aggregate_results": {
+    "classification": {
+      "confidence": 0.95,
+      "evidence_details": null,
+      "has_evidence": true,
+      "privilege_type": "none"
+    },
+    "entities": [
+      {
+        "name": "John Smith",
+        "relevance": "high",
+        "type": "PERSON"
+      },
+      {
+        "name": "ABC Corporation",
+        "relevance": "high",
+        "type": "ORGANIZATION"
+      }
+    ],
+    "processed_at": "2025-05-29T20:11:33.315722Z",
+    "summary": "The email mentions a test document related to John Smith and ABC Corporation. No further details or decisions are provided in the email."
+  },
+  "extract_classification": {
+    "confidence": 0.95,
+    "evidence_details": null,
+    "has_evidence": true,
+    "privilege_type": "none"
+  },
+  "extract_entities": {
+    "entities": [
+      {
+        "name": "John Smith",
+        "relevance": "high",
+        "type": "PERSON"
+      },
+      {
+        "name": "ABC Corporation",
+        "relevance": "high",
+        "type": "ORGANIZATION"
+      }
+    ]
+  },
+  "extract_summary": {
+    "summary": "The email mentions a test document related to John Smith and ABC Corporation. No further details or decisions are provided in the email."
+  },
+  "process": {
+    "entities": [
+      {
+        "name": "John Smith",
+        "type": "PERSON"
+      },
+      {
+        "name": "ABC Corporation",
+        "type": "ORGANIZATION"
+      }
+    ],
+    "summary": "The email mentions a test document related to John Smith and ABC Corporation. No further details or decisions are provided in the email.",
+    "tags": {
+      "privileged": false,
+      "significant_evidence": true
+    }
+  }
+}

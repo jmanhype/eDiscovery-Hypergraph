@@ -1,0 +1,97 @@
+version: '3.8'
+services:
+  elixir_agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app/apps/a2a_agent_web
+    ports:
+      - "4000:4000"
+    environment:
+      - MIX_ENV=dev
+    depends_on:
+      nats:
+        condition: service_healthy
+  python_agent:
+    build:
+      context: ./agents/python_agents/minimal_a2a_agent
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    depends_on:
+      nats:
+        condition: service_healthy
+  nats:
+    image: nats:2.10-alpine
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "4222"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+  
+  # eDiscovery backend service
+  ediscovery_backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - NATS_URL=nats://nats:4222
+      - MONGO_URL=mongodb://mongo:27017/ediscovery
+    depends_on:
+      nats:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: uvicorn server:app --host 0.0.0.0 --port 8001 --reload
+  
+  # MongoDB for eDiscovery persistence
+  mongo:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=ediscovery
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  
+  # eDiscovery frontend
+  ediscovery_frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8001
+    depends_on:
+      - ediscovery_backend
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - elixir_agent
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  mongo_data:

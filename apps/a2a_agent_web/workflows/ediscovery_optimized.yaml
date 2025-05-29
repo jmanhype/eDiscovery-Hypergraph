@@ -1,0 +1,50 @@
+name: "eDiscovery Optimized Processing"
+description: "Efficiently process legal documents - single API call with parallel extraction"
+
+inputs:
+  email: string
+
+outputs:
+  summary: string
+  classification: map
+  entities: list
+  processed_at: string
+
+nodes:
+  - id: process
+    op: EdiscoveryProcessOperator
+    params:
+      timeout: 20000
+    depends_on: []
+
+  - id: extract_summary
+    op: EdiscoveryExtractSummaryOperator
+    params:
+      timeout: 1000
+    depends_on: [process]
+
+  - id: extract_classification
+    op: EdiscoveryExtractClassificationOperator
+    params:
+      timeout: 1000
+    depends_on: [process]
+
+  - id: extract_entities
+    op: EdiscoveryExtractEntitiesOperator
+    params:
+      timeout: 1000
+    depends_on: [process]
+
+  - id: aggregate_results
+    op: EdiscoveryAggregationOperator
+    params:
+      timeout: 1000
+    depends_on: [extract_summary, extract_classification, extract_entities]
+
+edges:
+  - process->extract_summary
+  - process->extract_classification
+  - process->extract_entities
+  - extract_summary->aggregate_results
+  - extract_classification->aggregate_results
+  - extract_entities->aggregate_results

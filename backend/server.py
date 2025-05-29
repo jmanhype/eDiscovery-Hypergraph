@@ -79,8 +79,13 @@ async def startup_event():
         
         # Initialize NATS connection (optional)
         try:
-            nats_connection = await nats.connect("nats://localhost:4222")
-            logger.info("Connected to NATS server")
+            nats_url = os.getenv('NATS_URL', 'nats://localhost:4222')
+            if nats_url and nats_url.strip():
+                nats_connection = await nats.connect(nats_url, max_reconnect_attempts=3, reconnect_time_wait=1)
+                logger.info(f"Connected to NATS server at {nats_url}")
+            else:
+                logger.info("NATS_URL not set, skipping NATS connection")
+                nats_connection = None
         except Exception as e:
             logger.info(f"NATS not available, will use direct API calls: {str(e)}")
             nats_connection = None

@@ -1,0 +1,47 @@
+{
+  "dashboard": {
+    "title": "A2A Agent Observability",
+    "panels": [
+      {
+        "type": "graph",
+        "title": "A2A Request Rate",
+        "targets": [
+          { "expr": "increase(a2a_messages_total[1m])", "legendFormat": "{{type}}" }
+        ],
+        "yaxes": [ { "format": "ops" }, { "format": "short" } ]
+      },
+      {
+        "type": "graph",
+        "title": "A2A Request Latency (seconds)",
+        "targets": [
+          { "expr": "histogram_quantile(0.95, sum(rate(a2a_request_latency_seconds_bucket[1m])) by (le, type))", "legendFormat": "p95 {{type}}" }
+        ],
+        "yaxes": [ { "format": "s" }, { "format": "short" } ]
+      },
+      {
+        "type": "graph",
+        "title": "A2A Request Size (bytes)",
+        "targets": [
+          { "expr": "avg_over_time(a2a_request_size_bytes_sum[1m]) / avg_over_time(a2a_request_size_bytes_count[1m])", "legendFormat": "avg {{type}}" }
+        ],
+        "yaxes": [ { "format": "bytes" }, { "format": "short" } ]
+      },
+      {
+        "type": "graph",
+        "title": "A2A Error Rate by Type",
+        "targets": [
+          { "expr": "increase(a2a_errors_by_type_total[1m])", "legendFormat": "{{type}}" }
+        ],
+        "yaxes": [ { "format": "ops" }, { "format": "short" } ]
+      },
+      {
+        "type": "graph",
+        "title": "Negotiation Outcomes",
+        "targets": [
+          { "expr": "increase(a2a_negotiations_total[1m])", "legendFormat": "{{result}}" }
+        ],
+        "yaxes": [ { "format": "ops" }, { "format": "short" } ]
+      }
+    ]
+  }
+}

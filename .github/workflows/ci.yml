@@ -1,0 +1,76 @@
+name: CI
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    services:
+      nats:
+        image: nats:2.10-alpine
+        ports:
+          - 4222:4222
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.16'
+          otp-version: '26.2'
+      - name: Install Elixir deps
+        run: |
+          cd apps/a2a_agent_web
+          mix deps.get
+      - name: Run Elixir tests (with coverage)
+        run: |
+          cd apps/a2a_agent_web
+          mix test --cover
+      - name: Generate Elixir docs (HexDocs)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd apps/a2a_agent_web
+          mix docs
+      - name: Upload Elixir coverage artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: elixir-coverage
+          path: apps/a2a_agent_web/cover
+      - name: Upload Elixir docs artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v3
+        with:
+          name: elixir-docs
+          path: apps/a2a_agent_web/doc
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install Python deps
+        run: |
+          cd agents/python_agents/minimal_a2a_agent
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+      - name: Run Python tests (with coverage)
+        run: |
+          cd agents/python_agents/minimal_a2a_agent
+          source .venv/bin/activate
+          pytest --cov=app --cov-report=xml --cov-report=html
+      - name: Upload Python coverage artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: python-coverage
+          path: agents/python_agents/minimal_a2a_agent/htmlcov
+      - name: Build Python docs (Sphinx)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd agents/python_agents/minimal_a2a_agent
+          if [ -f docs/Makefile ]; then make -C docs html; fi
+      - name: Upload Python docs artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v3
+        with:
+          name: python-docs
+          path: agents/python_agents/minimal_a2a_agent/docs/_build/html

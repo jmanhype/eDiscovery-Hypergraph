@@ -1,0 +1,99 @@
+INFO:     Started server process [58798]
+INFO:     Waiting for application startup.
+ERROR:server:Error during startup: Empty host (or extra comma in host list).
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     127.0.0.1:55505 - "GET /api/ediscovery/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55641 - "POST /api/ediscovery/process HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:55762 - "GET /api/ediscovery/sample HTTP/1.1" 200 OK
+INFO:server:Processing 1 emails for eDiscovery analysis
+INFO:server:Processing email b6619f8c-b3af-45a5-a25e-c3cc7a5bb4b8 in batch e2dc6340-9220-42db-87d8-c7e171587915
+INFO:server:Requesting summarization for email b6619f8c-b3af-45a5-a25e-c3cc7a5bb4b8
+INFO:server:Requesting classification for email b6619f8c-b3af-45a5-a25e-c3cc7a5bb4b8
+INFO:server:Requesting entity extraction for email b6619f8c-b3af-45a5-a25e-c3cc7a5bb4b8
+INFO:     127.0.0.1:56013 - "POST /api/ediscovery/process HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64742 - "POST /api/ediscovery/process HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:64742 - "POST /api/ediscovery/process HTTP/1.1" 422 Unprocessable Entity
+INFO:     127.0.0.1:64742 - "POST /api/ediscovery/process HTTP/1.1" 422 Unprocessable Entity
+INFO:server:Processing 1 emails for eDiscovery analysis
+INFO:server:Processing email bf411464-c3dd-48fc-8400-ba7698f2ef96 in batch b75a0e68-54ed-4812-977a-aaf5277825cc
+INFO:server:Requesting summarization for email bf411464-c3dd-48fc-8400-ba7698f2ef96
+INFO:server:Requesting classification for email bf411464-c3dd-48fc-8400-ba7698f2ef96
+INFO:server:Requesting entity extraction for email bf411464-c3dd-48fc-8400-ba7698f2ef96
+INFO:     127.0.0.1:65004 - "POST /api/ediscovery/process HTTP/1.1" 200 OK
+INFO:server:Processing 1 emails for eDiscovery analysis
+INFO:server:Processing email 67013f62-6702-4175-a839-3ff3871237e7 in batch 274c36ff-e453-4795-a84a-18f55328bfa5
+INFO:server:Requesting summarization for email 67013f62-6702-4175-a839-3ff3871237e7
+INFO:server:Requesting classification for email 67013f62-6702-4175-a839-3ff3871237e7
+INFO:server:Requesting entity extraction for email 67013f62-6702-4175-a839-3ff3871237e7
+INFO:     127.0.0.1:49495 - "POST /api/ediscovery/process HTTP/1.1" 200 OK
+INFO:server:Processing 1 emails for eDiscovery analysis
+INFO:server:Processing email d3ba6bef-0f18-440a-9f11-af7a11c81ed2 in batch 5af7cea3-a8bf-425f-9c04-860914769ff3
+INFO:server:Requesting summarization for email d3ba6bef-0f18-440a-9f11-af7a11c81ed2
+INFO:server:Requesting classification for email d3ba6bef-0f18-440a-9f11-af7a11c81ed2
+INFO:server:Requesting entity extraction for email d3ba6bef-0f18-440a-9f11-af7a11c81ed2
+INFO:     127.0.0.1:49495 - "POST /api/ediscovery/process HTTP/1.1" 200 OK
+INFO:server:Processing 1 emails for eDiscovery analysis
+INFO:server:Processing email 31ae9cc2-e798-43ca-bfb3-3cac6c78b03a in batch eba9ca2f-ce5b-4b96-9ad5-9f6de7d98484
+INFO:server:Requesting summarization for email 31ae9cc2-e798-43ca-bfb3-3cac6c78b03a
+INFO:server:Requesting classification for email 31ae9cc2-e798-43ca-bfb3-3cac6c78b03a
+INFO:server:Requesting entity extraction for email 31ae9cc2-e798-43ca-bfb3-3cac6c78b03a
+INFO:     127.0.0.1:49495 - "POST /api/ediscovery/process HTTP/1.1" 200 OK
+INFO:server:Processing 1 emails for eDiscovery analysis
+INFO:server:Processing email d96a1a88-1bce-4194-a0fc-c86a6f94d45f in batch 11706a73-da3b-4f73-a0ef-aef4912c7432
+INFO:server:Requesting summarization for email d96a1a88-1bce-4194-a0fc-c86a6f94d45f
+INFO:server:Requesting classification for email d96a1a88-1bce-4194-a0fc-c86a6f94d45f
+INFO:server:Requesting entity extraction for email d96a1a88-1bce-4194-a0fc-c86a6f94d45f
+INFO:     127.0.0.1:50008 - "POST /api/ediscovery/process HTTP/1.1" 200 OK
+INFO:server:Processing 1 emails for eDiscovery analysis
+INFO:server:Processing email 088d2eac-37fb-4295-8f64-c38495265974 in batch 64df9167-4aab-4cac-bc12-8b2062eb7d1b
+INFO:server:Requesting summarization for email 088d2eac-37fb-4295-8f64-c38495265974
+INFO:server:Requesting classification for email 088d2eac-37fb-4295-8f64-c38495265974
+INFO:server:Requesting entity extraction for email 088d2eac-37fb-4295-8f64-c38495265974
+INFO:     127.0.0.1:50008 - "POST /api/ediscovery/process HTTP/1.1" 200 OK
+INFO:server:Processing 1 emails for eDiscovery analysis
+INFO:server:Processing email 93f4fc2e-c8d5-43b5-98a8-d39934be4fba in batch f5c23935-cbd7-48da-9167-462b08b9dc28
+INFO:server:Requesting summarization for email 93f4fc2e-c8d5-43b5-98a8-d39934be4fba
+INFO:server:Requesting classification for email 93f4fc2e-c8d5-43b5-98a8-d39934be4fba
+INFO:server:Requesting entity extraction for email 93f4fc2e-c8d5-43b5-98a8-d39934be4fba
+INFO:     127.0.0.1:50008 - "POST /api/ediscovery/process HTTP/1.1" 200 OK
+INFO:server:Processing 1 emails for eDiscovery analysis
+INFO:server:Processing email 50f406fc-9ae6-4008-aaeb-e0ba181ea6a7 in batch 256ddb70-6837-421b-84ca-b37be00ac280
+INFO:server:Requesting summarization for email 50f406fc-9ae6-4008-aaeb-e0ba181ea6a7
+INFO:server:Requesting classification for email 50f406fc-9ae6-4008-aaeb-e0ba181ea6a7
+INFO:server:Requesting entity extraction for email 50f406fc-9ae6-4008-aaeb-e0ba181ea6a7
+INFO:     127.0.0.1:50493 - "POST /api/ediscovery/process HTTP/1.1" 200 OK
+INFO:server:Processing 1 emails for eDiscovery analysis
+INFO:server:Processing email 3a78454f-5e40-4337-aa2f-fa984786d1ff in batch 9134e11c-d2a8-4be3-a214-5feb5a54b306
+INFO:server:Requesting summarization for email 3a78454f-5e40-4337-aa2f-fa984786d1ff
+INFO:server:Requesting classification for email 3a78454f-5e40-4337-aa2f-fa984786d1ff
+INFO:server:Requesting entity extraction for email 3a78454f-5e40-4337-aa2f-fa984786d1ff
+INFO:     127.0.0.1:50493 - "POST /api/ediscovery/process HTTP/1.1" 200 OK
+INFO:server:Processing 1 emails for eDiscovery analysis
+INFO:server:Processing email c2931eb9-d8cc-4ca3-8ee5-7030a356b2f3 in batch 133ab48b-8e09-421b-9099-48f7647a0ab6
+INFO:server:Requesting summarization for email c2931eb9-d8cc-4ca3-8ee5-7030a356b2f3
+INFO:server:Requesting classification for email c2931eb9-d8cc-4ca3-8ee5-7030a356b2f3
+INFO:server:Requesting entity extraction for email c2931eb9-d8cc-4ca3-8ee5-7030a356b2f3
+INFO:     127.0.0.1:50493 - "POST /api/ediscovery/process HTTP/1.1" 200 OK
+INFO:server:Processing 1 emails for eDiscovery analysis
+INFO:server:Processing email 8efc131f-88f5-4c0a-84dd-63012299c33d in batch bbcccf6e-5aff-4643-b505-053cbe9d8dc6
+INFO:server:Requesting summarization for email 8efc131f-88f5-4c0a-84dd-63012299c33d
+INFO:server:Requesting classification for email 8efc131f-88f5-4c0a-84dd-63012299c33d
+INFO:server:Requesting entity extraction for email 8efc131f-88f5-4c0a-84dd-63012299c33d
+INFO:     127.0.0.1:50731 - "POST /api/ediscovery/process HTTP/1.1" 200 OK
+INFO:server:Processing 1 emails for eDiscovery analysis
+INFO:server:Processing email 74748ca5-1fcf-43d8-829e-c6788482833e in batch c5b95ccb-6e4d-436f-8e76-f7abe399686f
+INFO:server:Requesting summarization for email 74748ca5-1fcf-43d8-829e-c6788482833e
+INFO:server:Requesting classification for email 74748ca5-1fcf-43d8-829e-c6788482833e
+INFO:server:Requesting entity extraction for email 74748ca5-1fcf-43d8-829e-c6788482833e
+INFO:     127.0.0.1:50731 - "POST /api/ediscovery/process HTTP/1.1" 200 OK
+INFO:server:Processing 1 emails for eDiscovery analysis
+INFO:server:Processing email 813dd9bd-651d-40fd-bab2-52647e07d8f6 in batch 45c942b1-fb81-42c0-bb48-66b74ca57e62
+INFO:server:Requesting summarization for email 813dd9bd-651d-40fd-bab2-52647e07d8f6
+INFO:server:Requesting classification for email 813dd9bd-651d-40fd-bab2-52647e07d8f6
+INFO:server:Requesting entity extraction for email 813dd9bd-651d-40fd-bab2-52647e07d8f6
+INFO:     127.0.0.1:50731 - "POST /api/ediscovery/process HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [58798]

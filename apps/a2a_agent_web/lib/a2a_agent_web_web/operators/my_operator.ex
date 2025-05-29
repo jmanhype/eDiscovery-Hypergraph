@@ -1,0 +1,13 @@
+defmodule A2AAgentWebWeb.Operators.MyOperator do
+  @moduledoc """
+  Operator: MyOperator
+  Implements the Operator protocol for custom workflow steps.
+  """
+  @behaviour A2AAgentWebWeb.Operator
+  @impl true
+  @spec call(map(), map()) :: map()
+  def call(input, params) do
+    # Implement operator logic here
+    %{"result" => input["value"]}
+  end
+end

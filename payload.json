@@ -1,0 +1,4 @@
+{
+  "workflow_text": "Nodes:\n- id: step1, op: llm, prompt_template: \"Summarize: ~s\", context: \"{\\\"text\\\": \\\"Elixir is great for concurrency.\\\"}\"\nEdges:\n",
+  "input": {}
+}

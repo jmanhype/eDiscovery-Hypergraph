@@ -1,0 +1,16 @@
+# Example workflow in YAML DSL for your operator graph system
+nodes:
+  - id: summarize
+    op: LLMOperator
+    params:
+      prompt_template: "Summarize: ~s"
+      context:
+        topic: "Elixir DSLs"
+    depends_on: []
+  - id: analyze
+    op: MapOperator
+    params:
+      function: null
+    depends_on: [summarize]
+edges:
+  - "summarize->analyze"
