@@ -1,4 +1,0 @@
-# HypergraphUmbrella
-
-**TODO: Add description**
-
