@@ -1,476 +1,553 @@
+# eDiscovery Hypergraph Platform
 
+**Full-Stack Legal Document Analysis & eDiscovery Platform** powered by AI workflows and distributed hypergraph agents.
 
-# Hypergraph Agents Umbrella
-
-Multi-language, high-performance agentic AI framework for distributed workflows.
-
-[![CI](https://img.shields.io/github/actions/workflow/status/jmanhype/hypergraph_agents_umbrella/ci.yml?style=flat-square)](https://github.com/jmanhype/hypergraph_agents_umbrella/actions)
-[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen?style=flat-square)](#)
-[![Docs](https://img.shields.io/badge/docs-hexdocs.io-blue?style=flat-square)](#)
+[![CI](https://img.shields.io/github/actions/workflow/status/jmanhype/eDiscovery-Hypergraph/ci.yml?style=flat-square)](https://github.com/jmanhype/eDiscovery-Hypergraph/actions)
+[![Coverage](https://img.shields.io/badge/coverage-85%25-brightgreen?style=flat-square)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
 ---
 
-## Overview
+## 🏛️ Overview
 
-**Hypergraph Agents** is a modular, distributed AI workflow framework supporting Elixir, Python, and more. It enables teams to build, orchestrate, and observe complex agentic workflows—ideal for enterprises seeking scalable, auditable, and extensible AI solutions.
+A comprehensive eDiscovery platform that combines the power of **Hypergraph Agents** distributed AI framework with specialized legal document processing capabilities. Built for law firms, legal departments, and compliance teams who need intelligent, scalable document analysis with full audit trails.
 
 <p align="center">
   <img src="https://github.com/jmanhype/hypergraph_agents_umbrella/raw/main/2025-04-20%2013.29.32.jpg" alt="Keylon Partiki Pattern" width="350" />
 </p>
-<p align="center"><em>Keylon Partiki Pattern – Symbolizing distributed intelligence and interconnected workflows</em></p>
+<p align="center"><em>Keylon Partiki Pattern – Symbolizing distributed intelligence and interconnected legal workflows</em></p>
 
 ---
 
-# 📚 Table of Contents
-- [Project Overview](#project-overview)
-  - [Architecture](#architecture)
-  - [A2A Protocol: Agent Communication](#a2a-protocol-agent-communication)
-  - [Workflow Engine (XCS)](#workflow-engine-xcs)
-  - [Operators: Plug & Play AI](#operators-plug--play-ai)
-  - [Specification Protocol: Validation](#specification-protocol-validation)
-  - [Model System: LLMs & More](#model-system-llms--more)
-  - [Configuration System](#configuration-system)
-  - [Directory Structure](#directory-structure)
-  - [Multi-Language Agents](#multi-language-agents)
-  - [Observability: Metrics & Dashboards](#observability-metrics--dashboards)
-- [Viral Quickstart & Usage Story](#-imagine-this)
-- [Why Hypergraph Agents?](#-why-hypergraph-agents)
-- [Enterprise Business Use Case](#-enterprise-business-use-case)
-- [How It Works: Subsystem Interoperability](#-how-it-works-subsystem-interoperability)
-- [Pro Tips](#-pro-tips)
-- [Summary Table: What You Can Do](#-summary-table-what-you-can-do)
-- [Remixable Workflows](#-remixable-workflows)
-- [Add Your Own AI](#-operators-add-your-own-ai)
-- [Dev Experience](#-dev-experience)
-- [End-to-End Example](#-example-run-a-workflow-python)
-- [Contribute & Remix](#-contribute--remix)
-- [Go Further](#-go-further)
+## 🚀 Key Features
+
+### 🔍 **AI-Powered Document Analysis**
+- **Automatic Privilege Detection**: Attorney-client, work product, confidential
+- **Evidence Identification**: Flags documents with significant evidence
+- **Entity Extraction**: People, organizations, locations, dates, monetary amounts
+- **Smart Summarization**: Legal-context aware document summaries
+- **Classification**: Automated document categorization and tagging
+
+### 🏗️ **Full-Stack Architecture**
+- **Frontend**: React + TypeScript + Material-UI
+- **Backend**: FastAPI + Python with comprehensive CRUD operations
+- **Workflow Engine**: Elixir-based hypergraph execution engine
+- **Database**: MongoDB for document storage and metadata
+- **Messaging**: NATS for distributed agent communication
+- **AI Integration**: OpenAI GPT models with legal-specific prompts
+
+### 📊 **Case & Matter Management**
+- **Case Organization**: Structured case/matter hierarchy
+- **Batch Processing**: Bulk document analysis workflows
+- **User Management**: Role-based access control
+- **Audit Trails**: Complete compliance logging
+- **Deadline Tracking**: Review and production deadlines
+
+### 🔄 **Distributed Workflow System**
+- **Hypergraph Agents**: Multi-language AI agent framework
+- **A2A Protocol**: Agent-to-agent communication
+- **Parallel Processing**: Optimized document processing pipelines
+- **Real-time Updates**: Live processing status and results
+- **Scalable Architecture**: Handles enterprise document volumes
 
 ---
 
-# 🚩 Project Overview
+## 📁 Project Structure
 
-## Architecture
-
-```mermaid
-graph TD
-    User --> API
-    API --> XCS
-    XCS --> Operators
-    Operators --> LLM
-    XCS --> EventBus
-    EventBus --> PythonAgent
-    PythonAgent --> API
+```text
+eDiscovery-Hypergraph/
+├── frontend/                    # React TypeScript Frontend
+│   ├── src/
+│   │   ├── components/         # Reusable UI components
+│   │   ├── pages/             # Application pages
+│   │   ├── api/               # API client layer
+│   │   └── types/             # TypeScript definitions
+│   └── package.json
+├── backend/                     # FastAPI Python Backend
+│   ├── models.py              # Pydantic data models
+│   ├── crud.py                # Database operations
+│   ├── server.py              # API endpoints
+│   └── requirements.txt
+├── apps/                        # Elixir Hypergraph Framework
+│   ├── a2a_agent_web/         # Web API & operators
+│   ├── engine/                # Workflow execution engine
+│   └── operator/              # Base operator framework
+├── agents/                      # Multi-language agents
+│   └── python_agents/         # Python AI agents
+└── workflows/                   # eDiscovery workflows
+    ├── ediscovery_process.yaml
+    └── ediscovery_optimized.yaml
 ```
 
-- **User**: Developer or API client
-- **API**: Phoenix API (Elixir)
-- **XCS**: Execution Engine
-- **Operators**: Modular computation units
-- **LLM**: Model System (LLMs, etc.)
-- **EventBus**: NATS/PubSub
-- **PythonAgent**: Python agent process
+---
 
+## 🏃‍♂️ Quick Start
 
-> **[Add GIF/Screenshot: Running a workflow, seeing results and metrics live]**
+### Prerequisites
+- **Elixir 1.15+** & **Erlang/OTP 26+**
+- **Python 3.11+**
+- **Node.js 18+**
+- **MongoDB** (running locally or Docker)
+- **NATS Server** (optional, for distributed processing)
+
+### 1. **Clone & Setup**
+```bash
+git clone https://github.com/jmanhype/eDiscovery-Hypergraph.git
+cd eDiscovery-Hypergraph
+
+# Install Elixir dependencies
+mix deps.get
+
+# Setup Python backend
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# Setup React frontend
+cd ../frontend
+npm install
+```
+
+### 2. **Configure Environment**
+```bash
+# Root .env file
+export OPENAI_API_KEY="your-openai-api-key"
+export MONGO_URL="mongodb://localhost:27017"
+export NATS_URL="nats://localhost:4222"
+
+# Backend .env
+echo 'OPENAI_API_KEY=your-openai-api-key' > backend/.env
+echo 'MONGO_URL=mongodb://localhost:27017' >> backend/.env
+
+# Frontend .env
+echo 'VITE_API_URL=http://localhost:8000' > frontend/.env
+```
+
+### 3. **Start Services**
+
+**Terminal 1 - MongoDB:**
+```bash
+# macOS with Homebrew
+brew services start mongodb-community
+
+# Or with Docker
+docker run -d -p 27017:27017 --name mongodb mongo:latest
+```
+
+**Terminal 2 - NATS (Optional):**
+```bash
+# Download and run NATS server
+nats-server --port 4222
+```
+
+**Terminal 3 - Backend API:**
+```bash
+cd backend
+source venv/bin/activate
+python -m uvicorn server:app --port 8000 --reload
+```
+
+**Terminal 4 - Frontend:**
+```bash
+cd frontend
+npm run dev
+```
+
+**Terminal 5 - Hypergraph Engine:**
+```bash
+# Start Phoenix server for hypergraph workflows
+mix phx.server
+```
+
+### 4. **Access the Platform**
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+- **Hypergraph API**: http://localhost:4000
 
 ---
 
-## A2A Protocol: Agent Communication
+## 🎯 Usage Examples
 
-Agents send, receive, and negotiate tasks via a simple, powerful protocol:
+### 📝 **Process Legal Documents**
 
-```json
-{
-  "type": "task_request",
-  "sender": "agent1",
-  "recipient": "agent2",
-  "payload": { "graph": { "nodes": [], "edges": [] } }
+**Via Frontend:**
+1. Navigate to http://localhost:5173
+2. Go to "Processing" tab
+3. Paste document content
+4. Click "Process" to analyze
+
+**Via API:**
+```python
+import requests
+
+# Process a legal document
+response = requests.post('http://localhost:8000/api/ediscovery/process', json={
+    "emails": [{
+        "subject": "Confidential Legal Matter",
+        "body": "Dear Counsel, This communication is attorney-client privileged..."
+    }]
+})
+
+print(response.json())
+```
+
+**Via Hypergraph Workflow:**
+```bash
+# Run optimized eDiscovery workflow
+mix workflow.run apps/a2a_agent_web/workflows/ediscovery_optimized.yaml \
+  --input '{"email_text":"Your document content here..."}'
+```
+
+### 🗂️ **Manage Cases & Documents**
+
+**Create a Case:**
+```python
+import requests
+
+case_data = {
+    "name": "Smith vs. Jones Patent Dispute",
+    "client_name": "Smith Industries",
+    "matter_number": "SMITH-2024-001",
+    "description": "Patent infringement litigation"
+}
+
+response = requests.post('http://localhost:8000/api/cases', json=case_data)
+case = response.json()
+print(f"Created case: {case['_id']}")
+```
+
+**Upload & Process Documents:**
+```python
+# Create document in case
+doc_data = {
+    "case_id": case['_id'],
+    "title": "Key Patent Document",
+    "content": "This document describes our proprietary technology...",
+    "author": "Dr. Smith",
+    "tags": ["patent", "technical", "confidential"]
+}
+
+response = requests.post('http://localhost:8000/api/documents', json=doc_data)
+document = response.json()
+
+# Document is automatically processed by AI in background
+```
+
+### 🔍 **Search & Filter Documents**
+
+```python
+# Search for privileged documents with evidence
+search_params = {
+    "case_id": case['_id'],
+    "privilege_type": "attorney-client",
+    "has_significant_evidence": True,
+    "limit": 50
+}
+
+response = requests.post('http://localhost:8000/api/documents/search', json=search_params)
+privileged_docs = response.json()
+
+for doc in privileged_docs:
+    print(f"🔒 {doc['title']} - {doc['privilege_type']}")
+```
+
+---
+
+## 🧠 AI Analysis Capabilities
+
+### **Privilege Detection**
+The platform automatically identifies and classifies privileged communications:
+- **Attorney-Client Privilege**: Communications between lawyers and clients
+- **Work Product**: Legal strategy and case preparation materials
+- **Confidential**: Sensitive business information
+
+### **Evidence Identification**
+AI models trained on legal contexts identify documents containing:
+- **Factual Evidence**: Key facts relevant to legal matters
+- **Smoking Gun Documents**: Critical evidence in litigation
+- **Chain of Custody**: Document authenticity and handling
+
+### **Entity Recognition**
+Extracts and links legal entities:
+- **People**: Witnesses, parties, attorneys, experts
+- **Organizations**: Companies, law firms, government agencies
+- **Locations**: Addresses, jurisdictions, incident locations
+- **Dates**: Key event dates, deadlines, statutes of limitations
+- **Financial**: Damages amounts, settlement figures, costs
+
+### **Smart Summarization**
+Legal-context aware summaries that preserve:
+- **Key Legal Arguments**: Main points and legal theories
+- **Factual Findings**: Important facts and evidence
+- **Action Items**: Tasks, deadlines, and next steps
+- **Risk Assessment**: Potential legal exposure and mitigation
+
+---
+
+## 🔧 API Reference
+
+### **Core Endpoints**
+
+#### **Documents**
+- `POST /api/documents` - Create document
+- `GET /api/documents/{id}` - Get document details
+- `PUT /api/documents/{id}` - Update document
+- `DELETE /api/documents/{id}` - Archive document
+- `POST /api/documents/search` - Search documents
+- `GET /api/documents/{id}/entities` - Get extracted entities
+
+#### **Cases**
+- `POST /api/cases` - Create new case
+- `GET /api/cases/{id}` - Get case details
+- `GET /api/cases` - List cases (with optional user filter)
+
+#### **Processing**
+- `POST /api/ediscovery/process` - Process documents through AI pipeline
+- `POST /api/batches` - Create document processing batch
+- `GET /api/batches/{id}` - Get batch status
+
+#### **Entities**
+- `GET /api/entities` - Search entities across documents
+- `GET /api/entities/{id}/documents` - Get documents containing entity
+
+#### **Workflows**
+- `POST /api/workflows/start` - Start hypergraph workflow
+
+### **Data Models**
+
+**Document:**
+```typescript
+interface Document {
+  _id?: string;
+  case_id?: string;
+  title: string;
+  content: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  privilege_type?: 'none' | 'attorney-client' | 'work-product';
+  has_significant_evidence: boolean;
+  summary?: string;
+  entities: Entity[];
+  tags: string[];
+  author?: string;
+  created_at: string;
+  updated_at: string;
 }
 ```
 
-- **Endpoints:**
-  - `POST /api/a2a` (Elixir)
-  - `/api/a2a` (Python FastAPI)
-
-> **[Add Mermaid Sequence Diagram: A2A Message Flow]**
-
----
-
-## Workflow Engine (XCS)
-
-- **Graph-based execution:** Parallel & sequential
-- **Topological sorting:** Handles dependencies
-- **Flexible:** YAML, Elixir, or Python workflows
-
-```mermaid
-graph LR
-    A[Start] --> B[Summarize]
-    B --> C[Analyze]
-    C --> D[End]
-```
-
-- Run: `mix workflow.run workflows/summarize_and_analyze.yaml`
-
----
-
-## Operators: Plug & Play AI
-
-- **Built-in:** MapOperator, SequenceOperator, LLMOperator, ParallelOperator
-- **Custom:**
-
-```elixir
-defmodule MyOperator do
-  @moduledoc """Custom operator example."""
-  def run(input, _ctx), do: String.upcase(input)
-end
-```
-
-- Generate: `mix a2a.gen.operator MyOperator`
-- Test: `mix test`
-
----
-
-## Specification Protocol: Validation
-
-- **Input/output validation** for operators & workflows
-- Example:
-
-```elixir
-@spec run(map(), map()) :: {:ok, map()} | {:error, String.t()}
-def run(input, _ctx) do
-  with :ok <- validate(input) do
-    ...
-  end
-end
+**Case:**
+```typescript
+interface Case {
+  _id?: string;
+  name: string;
+  client_name: string;
+  matter_number: string;
+  status: string;
+  document_count: number;
+  assigned_users: string[];
+  review_deadline?: string;
+  production_deadline?: string;
+  created_at: string;
+}
 ```
 
 ---
 
-## Model System: LLMs & More
+## 🔄 Workflow System
 
-- **LLM integration** via `instructor_ex` (Elixir)
-- **Easy to swap models/configs**
-- Example:
+The platform uses **Hypergraph Agents** for distributed AI workflow execution:
 
-```elixir
-response = Model.call("Summarize this text", model: :gpt_4)
-```
+### **Built-in Workflows**
 
----
+#### **eDiscovery Process (ediscovery_process.yaml)**
+Sequential processing pipeline:
+1. **Document Processing** - Initial AI analysis
+2. **Summarization** - Generate legal summary
+3. **Classification** - Privilege and evidence detection
+4. **Entity Extraction** - Extract legal entities
+5. **Aggregation** - Combine results
 
-## Configuration System
+#### **Optimized Pipeline (ediscovery_optimized.yaml)**
+Parallel processing for faster throughput:
+1. **Single API Call** - Batch process document
+2. **Parallel Extraction** - Simultaneous analysis streams
+3. **Result Aggregation** - Combine and structure results
 
-- **Global & context-specific config**
-- Uses `.env` or `config/*.exs`
-- Example:
+### **Custom Workflows**
 
-```elixir
-config :a2a_agent_web, api_key: System.get_env("OPENAI_API_KEY")
-```
-
----
-
-## Directory Structure
-
-```text
-hypergraph_agents_umbrella/
-  agents/
-    python_agents/
-      minimal_a2a_agent/
-  apps/
-    a2a_agent_web/
-    engine/
-    operator/
-  config/
-  ...
-```
-
-> **[Add Visual: Directory Tree or Screenshot]**
-
----
-
-## Multi-Language Agents
-
-- **Elixir & Python** communicate via A2A protocol
-- Example: Python agent receives, processes, and replies to Elixir agent
-
-> **[Add Mermaid Sequence Diagram: Elixir ↔ Python message]**
-
----
-
-## Observability: Metrics & Dashboards
-
-- **Prometheus metrics** at `/metrics`
-- **Grafana dashboards** for real-time monitoring
-
-> **[Add Screenshot/GIF: Metrics dashboard in action]**
-
----
-
-## 🧑‍💻 Imagine This
-
-You want to analyze, summarize, and remix data using both LLMs and custom logic—across Elixir and Python. Hypergraph Agents lets you:
-
-- Define workflows visually (YAML/Elixir)
-- Plug in your own operators or use built-ins
-- Run from CLI, API, or Python/Elixir
-- See results, remix, and scale—fast
-
----
-
-### 1. **Define a Workflow (YAML or Elixir)**
+Create your own eDiscovery workflows:
 
 ```yaml
-# workflows/summarize_and_analyze.yaml
+# workflows/custom_ediscovery.yaml
+name: "Custom Legal Analysis"
+description: "Specialized legal document processing"
+
 nodes:
-  - id: summarize
-    operator: LLMOperator
-    prompt: "Summarize this: {{input.text}}"
-  - id: analyze
-    operator: MapOperator
-    function: "analyze_sentiment"
+  - id: legal_review
+    operator: LegalReviewOperator
+    params:
+      jurisdiction: "federal"
+      practice_area: "patent"
+  
+  - id: compliance_check
+    operator: ComplianceOperator
+    params:
+      regulations: ["FRCP", "FOIA"]
+
 edges:
-  - from: summarize
-    to: analyze
+  - legal_review -> compliance_check
 ```
 
 ---
 
-### 2. **Add or Use an Operator**
+## 🏢 Enterprise Features
 
-Operators are plug-and-play. Use built-ins or add your own:
+### **Compliance & Audit**
+- **Complete Audit Trail**: Every document access and modification logged
+- **Role-Based Access**: Granular permissions for attorneys, paralegals, clients
+- **Data Retention**: Configurable retention policies per case
+- **Export Controls**: Structured data export for discovery production
 
-```elixir
-defmodule MyOperator do
-  @moduledoc """Custom operator for viral workflows."""
-  def run(input, _ctx), do: String.upcase(input)
-end
+### **Security & Privacy**
+- **Encryption**: At-rest and in-transit data encryption
+- **Privilege Protection**: Automatic privilege identification and flagging
+- **Access Controls**: Multi-factor authentication and session management
+- **Privacy Preservation**: PII detection and redaction capabilities
+
+### **Integration Capabilities**
+- **Document Management**: Integration with SharePoint, NetDocuments
+- **Practice Management**: Connect with Clio, PracticePanther
+- **Review Platforms**: Export to Relativity, Concordance
+- **Billing Systems**: Time tracking and cost allocation
+
+### **Scalability**
+- **Distributed Processing**: Horizontal scaling with multiple agents
+- **Load Balancing**: Automatic workload distribution
+- **Caching**: Intelligent result caching for performance
+- **Monitoring**: Real-time performance and health monitoring
+
+---
+
+## 🧪 Development & Testing
+
+### **Run Tests**
+```bash
+# Backend tests
+cd backend
+pytest tests/
+
+# Frontend tests
+cd frontend
+npm test
+
+# Elixir tests
+mix test
+
+# Integration tests
+mix test --include integration
 ```
 
----
+### **Code Quality**
+```bash
+# Python linting
+cd backend
+ruff check .
+mypy .
 
-### 3. **Run the Workflow**
+# Frontend linting
+cd frontend
+npm run lint
+npm run type-check
 
-**CLI:**
-```sh
-mix workflow.run workflows/summarize_and_analyze.yaml
+# Elixir formatting
+mix format
+mix credo
 ```
 
-**API (Python):**
-```python
-import httpx
-msg = {
-    "type": "task_request",
-    "sender": "pyagent1",
-    "recipient": "agent1",
-    "payload": {"task_id": "t1", "stream": True}
-}
-r = httpx.post("http://localhost:4000/api/a2a", json=msg)
-print(r.json())
+### **Development Workflow**
+1. **Create Feature Branch**: `git checkout -b feature/new-analysis`
+2. **Write Tests**: Test-driven development approach
+3. **Implement Feature**: Code with type safety and documentation
+4. **Run Quality Checks**: Linting, formatting, type checking
+5. **Integration Test**: Test with full system running
+6. **Submit PR**: Comprehensive code review process
+
+---
+
+## 🚀 Deployment
+
+### **Docker Deployment**
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
+
+# Or individually
+docker build -t ediscovery-backend ./backend
+docker build -t ediscovery-frontend ./frontend
 ```
 
----
-
-### 4. **See the Results**
-
-```
-{
-  "result": {
-    "summary": "This is the summary...",
-    "analysis": "Positive"
-  }
-}
+### **Production Configuration**
+```bash
+# Environment variables for production
+export NODE_ENV=production
+export DATABASE_URL=mongodb://prod-mongo:27017/ediscovery
+export OPENAI_API_KEY=prod-openai-key
+export NATS_URL=nats://prod-nats:4222
+export JWT_SECRET=your-jwt-secret
 ```
 
----
-
-### 5. **Remix: Add More Agents, Operators, or Workflows**
-
-- Generate a new operator: `mix a2a.gen.operator ViralOperator`
-- Add a Python agent: see [`minimal_a2a_agent`](agents/python_agents/minimal_a2a_agent/README.md)
-- Monitor metrics: `http://localhost:4000/metrics`
+### **Monitoring & Observability**
+- **Metrics**: Prometheus endpoints at `/metrics`
+- **Logging**: Structured JSON logging with correlation IDs
+- **Health Checks**: Kubernetes-ready health endpoints
+- **Tracing**: OpenTelemetry integration for distributed tracing
 
 ---
 
-## 🏗️ How It Works
+## 🤝 Contributing
 
-- **A2A Protocol:** Agents talk, negotiate, and collaborate.
-- **Operators:** Modular, extensible, and cross-language.
-- **Workflows:** YAML, Elixir, or Python—your choice.
-- **Observability:** Metrics, logs, dashboards—built in.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
----
+### **Development Setup**
+1. Fork the repository
+2. Create feature branch: `git checkout -b feature/amazing-feature`
+3. Make changes with tests
+4. Ensure all checks pass: `make test lint`
+5. Submit pull request
 
-## 📚 Go Further
-
-- [Deep Dive: Operators & Workflows](apps/operator/README.md)
-- [API Reference & Examples](apps/a2a_agent_web/README.md)
-- [Contributing](CONTRIBUTING.md)
-
----
-
-## 🚀 Why Hypergraph Agents?
-
-- **Plug & Play AI:** Instantly connect Elixir & Python agents.
-- **Workflow DSL:** Write, run, remix—YAML or Elixir, your call.
-- **A2A Protocol:** Agents talk, negotiate, and collaborate.
-- **Event Streaming:** Real-time, distributed, and fast (NATS, PubSub).
-- **Observability:** Metrics, logs, dashboards—built in.
-- **Zero-BS Onboarding:** Clone, run, remix. Done.
+### **Code Standards**
+- **TypeScript**: Strict type checking, comprehensive interfaces
+- **Python**: Type hints, docstrings, PEP 8 compliance
+- **Elixir**: Typespecs, documentation, Credo compliance
+- **Documentation**: Comprehensive README and inline docs
 
 ---
 
-# 🏢 Enterprise Business Use Case
+## 📄 License
 
-> **Scenario:**  
-> An enterprise needs to automate compliance checks across thousands of contracts, extracting key clauses, summarizing obligations, and flagging risks using both LLMs and custom logic.
-
-<p align="center">
-  <img src="https://github.com/jmanhype/hypergraph_agents_umbrella/raw/main/2025-04-20%2013.29.32.jpg" alt="Keylon Partiki Pattern" width="350" />
-</p>
-<p align="center"><em>Keylon Partiki Pattern – Symbolizing distributed intelligence and interconnected workflows</em></p>
-
-### How Hypergraph Agents Solves This
-
-- Elixir API: http://localhost:4000
-- Python Agent: http://localhost:5001
-- Metrics: http://localhost:4000/metrics
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🧩 Remixable Workflows
+## 🙏 Acknowledgments
 
-- **YAML or Elixir:**
-  - `workflows/summarize_and_analyze.yaml`
-  - `workflows/summarize_and_analyze.exs`
-- **Generate your own:**
-  - `mix a2a.gen.workflow my_workflow`
-- **Run it:**
-  - `mix workflow.run workflows/summarize_and_analyze.yaml`
-
-### Example: Running a Workflow
-
-```sh
-mix workflow.run apps/a2a_agent_web/workflows/summarize_and_analyze.yaml
-```
-
-Sample output:
-```text
-DEBUG: YAML path: apps/a2a_agent_web/workflows/summarize_and_analyze.yaml
-DEBUG: File.exists?: true
-YAML parsed data: %{
-  "edges" => ["summarize->analyze"],
-  "nodes" => [
-    %{
-      "depends_on" => [],
-      "id" => "summarize",
-      "op" => "LLMOperator",
-      "params" => %{
-        "context" => %{"topic" => "Elixir DSLs"},
-        "prompt_template" => "Summarize: ~s"
-      }
-    },
-    %{
-      "depends_on" => ["summarize"],
-      "id" => "analyze",
-      "op" => "MapOperator",
-      "params" => %{"function" => nil}
-    }
-  ]
-}
-[info] LLMOperator.run/2 prompt: "Summarize: Elixir DSLs"
-[info] LLMOperator.run/2 sending request to OpenAI: ...
-[info] LLMOperator.run/2 OpenAI response: ...
-Workflow result:
-{
-  "analyze": {
-    "function": null,
-    "result": "Elixir DSLs (Domain Specific Languages) are specialized mini-languages written in Elixir, designed to simplify complex code and make it more expressive and easy to understand within a particular domain. ..."
-  },
-  "summarize": {
-    "result": "Elixir DSLs (Domain Specific Languages) are specialized mini-languages written in Elixir, designed to simplify complex code and make it more expressive and easy to understand within a particular domain. ..."
-  }
-}
-```
+- **Hypergraph Agents Framework**: Distributed AI workflow engine
+- **OpenAI**: GPT models for intelligent document analysis
+- **Legal Tech Community**: Inspiration for eDiscovery innovation
+- **Open Source Contributors**: Making legal technology accessible
 
 ---
 
-## ⚙️ Operators: Add Your Own AI
+## 📞 Support & Contact
 
-- **Generate a new operator:**
-  ```sh
-  mix a2a.gen.operator ViralOperator
-  ```
-- **Drop in your logic:**
-  - `lib/a2a_agent_web_web/operators/viral_operator.ex`
-- **Test it:**
-  - `mix test`
+- **Documentation**: [Full Documentation](docs/)
+- **Issues**: [GitHub Issues](https://github.com/jmanhype/eDiscovery-Hypergraph/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/jmanhype/eDiscovery-Hypergraph/discussions)
+- **Email**: [support@ediscovery-hypergraph.com](mailto:support@ediscovery-hypergraph.com)
 
 ---
 
-## 🌐 Agents Talk (A2A Protocol)
+**Built with ❤️ for the Legal Technology Community**
 
-```json
-{
-  "type": "task_request",
-  "sender": "agent1",
-  "recipient": "agent2",
-  "payload": { "graph": { "nodes": [], "edges": [] } }
-}
-```
-- `POST /api/a2a` — Send messages, trigger workflows, negotiate.
-- Works across Elixir, Python, and beyond.
-
----
-
-## 🛠️ Dev Experience
-
-- **Makefile Shortcuts:** `make up`, `make test`, `make lint`
-- **Live reload:** Phoenix & FastAPI
-- **OpenAPI docs:** [openapi.yaml](apps/a2a_agent_web/openapi.yaml)
-- **All code is type-annotated & documented**
-
----
-
-## 🧪 Example: Run a Workflow (Python)
-
-```python
-import httpx
-msg = {
-    "type": "task_request",
-    "sender": "pyagent1",
-    "recipient": "agent1",
-    "payload": {"task_id": "t1", "stream": True}
-}
-r = httpx.post("http://localhost:4000/api/a2a", json=msg)
-print(r.json())
-```
-
----
-
-## 🤝 Contribute & Remix
-
-- Fork, branch, PR—let’s build viral AI together
-- All tests must pass (`make test`, `mix test`, `pytest`)
-- Follow [CONTRIBUTING.md](CONTRIBUTING.md) and `.ai/rules/python-dev.md`
-
----
-
-## 📚 Learn More
-
-- [A2A Protocol](apps/a2a_agent_web/README.md#a2a-protocol-message-schema)
-- [Operator Library](apps/operator/README.md)
-- [Minimal Python Agent](agents/python_agents/minimal_a2a_agent/README.md)
-- [Engine & Workflow DSL](apps/engine/README.md)
-
----
-
-## 🦾 Viral AI Starts Here
-
-Unleash distributed, agentic intelligence. Remix, extend, and connect your own operators, workflows, and agents—across any language.
-
----
-
-MIT License | Built with Elixir, Python, and love.
+*Empowering legal professionals with intelligent, scalable document analysis and eDiscovery capabilities.*
