@@ -16,7 +16,7 @@ logging.basicConfig(
 logger = logging.getLogger("eDiscovery-Test")
 
 # Base URL for the eDiscovery API
-BASE_URL = "http://localhost:4000"
+BASE_URL = "http://localhost:4000/api"
 
 class EDiscoveryAPITest(unittest.TestCase):
     """Test suite for eDiscovery Agent MVP backend API"""
@@ -61,7 +61,7 @@ class EDiscoveryAPITest(unittest.TestCase):
         payload = {
             "emails": [
                 {
-                    "from": "alice@company.com",
+                    "from_addr": "alice@company.com",
                     "to": ["bob@company.com"],
                     "subject": "Confidential Legal Matter - Project X",
                     "date": "2024-01-15T10:30:00Z", 
