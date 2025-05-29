@@ -17,3 +17,4 @@ nats-py==2.10.0
 openai>=1.0.0
 asyncio-nats-client
 python-dotenv
+email-validator

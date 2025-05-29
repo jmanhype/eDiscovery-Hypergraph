@@ -2,14 +2,17 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import { Box, CircularProgress } from '@mui/material';
 
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/layout/Layout';
-import Dashboard from './pages/Dashboard';
+import SimpleDashboard from './pages/SimpleDashboard';
 import Documents from './pages/Documents';
 import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail';
 import DocumentDetail from './pages/DocumentDetail';
 import Processing from './pages/Processing';
+import Login from './pages/Login';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,24 +48,62 @@ const theme = createTheme({
   },
 });
 
+// Protected Route Component
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
+  return <>{children}</>;
+}
+
+// Main App Routes
+function AppRoutes() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<SimpleDashboard />} />
+                  <Route path="/documents" element={<Documents />} />
+                  <Route path="/documents/:id" element={<DocumentDetail />} />
+                  <Route path="/cases" element={<Cases />} />
+                  <Route path="/cases/:id" element={<CaseDetail />} />
+                  <Route path="/processing" element={<Processing />} />
+                </Routes>
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </Router>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Router>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/documents" element={<Documents />} />
-              <Route path="/documents/:id" element={<DocumentDetail />} />
-              <Route path="/cases" element={<Cases />} />
-              <Route path="/cases/:id" element={<CaseDetail />} />
-              <Route path="/processing" element={<Processing />} />
-            </Routes>
-          </Layout>
-        </Router>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

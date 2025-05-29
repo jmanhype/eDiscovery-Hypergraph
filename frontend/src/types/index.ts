@@ -70,28 +70,34 @@ export interface Entity {
   updated_at: string;
 }
 
-export enum DocumentStatus {
-  PENDING = 'pending',
-  PROCESSING = 'processing',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  ARCHIVED = 'archived',
-}
+export const DocumentStatus = {
+  PENDING: 'pending',
+  PROCESSING: 'processing',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+  ARCHIVED: 'archived',
+} as const;
 
-export enum PrivilegeType {
-  NONE = 'none',
-  ATTORNEY_CLIENT = 'attorney-client',
-  WORK_PRODUCT = 'work-product',
-  CONFIDENTIAL = 'confidential',
-}
+export type DocumentStatus = typeof DocumentStatus[keyof typeof DocumentStatus];
 
-export enum EntityType {
-  PERSON = 'PERSON',
-  ORGANIZATION = 'ORGANIZATION',
-  LOCATION = 'LOCATION',
-  DATE = 'DATE',
-  MONEY = 'MONEY',
-}
+export const PrivilegeType = {
+  NONE: 'none',
+  ATTORNEY_CLIENT: 'attorney-client',
+  WORK_PRODUCT: 'work-product',
+  CONFIDENTIAL: 'confidential',
+} as const;
+
+export type PrivilegeType = typeof PrivilegeType[keyof typeof PrivilegeType];
+
+export const EntityType = {
+  PERSON: 'PERSON',
+  ORGANIZATION: 'ORGANIZATION',
+  LOCATION: 'LOCATION',
+  DATE: 'DATE',
+  MONEY: 'MONEY',
+} as const;
+
+export type EntityType = typeof EntityType[keyof typeof EntityType];
 
 export interface DocumentSearchParams {
   case_id?: string;

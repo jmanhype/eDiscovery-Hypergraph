@@ -12,15 +12,22 @@ import {
   ListItemText,
   Toolbar,
   Typography,
+  Menu,
+  MenuItem,
+  Avatar,
+  Chip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
   Description as DocumentIcon,
   Work as CaseIcon,
-  Processing as ProcessingIcon,
+  PlayCircleOutline as ProcessingIcon,
+  AccountCircle as AccountIcon,
+  Logout as LogoutIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
 const drawerWidth = 240;
 
@@ -37,11 +44,26 @@ const menuItems = [
 
 export default function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleUserMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    logout();
+    handleUserMenuClose();
   };
 
   const drawer = (
@@ -87,9 +109,59 @@ export default function Layout({ children }: LayoutProps) {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Legal Document Analysis Platform
           </Typography>
+          
+          {/* User Menu */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Chip
+              label={user?.role || 'User'}
+              size="small"
+              color="secondary"
+              sx={{ textTransform: 'capitalize' }}
+            />
+            <IconButton
+              color="inherit"
+              onClick={handleUserMenuOpen}
+              sx={{ p: 0 }}
+            >
+              <Avatar sx={{ width: 32, height: 32 }}>
+                {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+              </Avatar>
+            </IconButton>
+          </Box>
+          
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleUserMenuClose}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+          >
+            <MenuItem disabled>
+              <Typography variant="body2" color="textSecondary">
+                {user?.full_name}
+              </Typography>
+            </MenuItem>
+            <MenuItem disabled>
+              <Typography variant="body2" color="textSecondary">
+                {user?.email}
+              </Typography>
+            </MenuItem>
+            <MenuItem onClick={handleLogout}>
+              <ListItemIcon>
+                <LogoutIcon fontSize="small" />
+              </ListItemIcon>
+              Logout
+            </MenuItem>
+          </Menu>
         </Toolbar>
       </AppBar>
       <Box

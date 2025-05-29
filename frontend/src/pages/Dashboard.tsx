@@ -10,7 +10,7 @@ import {
 import {
   Description as DocumentIcon,
   Work as CaseIcon,
-  Processing as ProcessingIcon,
+  PlayCircleOutline as ProcessingIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
@@ -82,7 +82,7 @@ export default function Dashboard() {
       </Typography>
       
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatsCard
             title="Total Cases"
             value={cases?.length || 0}
@@ -90,7 +90,7 @@ export default function Dashboard() {
             color="#1976d2"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatsCard
             title="Total Documents"
             value={documents?.length || 0}
@@ -98,7 +98,7 @@ export default function Dashboard() {
             color="#2e7d32"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatsCard
             title="Privileged Documents"
             value={privilegedDocs.length}
@@ -106,7 +106,7 @@ export default function Dashboard() {
             color="#ed6c02"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid xs={12} sm={6} md={3}>
           <StatsCard
             title="Significant Evidence"
             value={significantEvidenceDocs.length}
@@ -117,7 +117,7 @@ export default function Dashboard() {
       </Grid>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <Paper sx={{ p: 2, height: 300 }}>
             <Typography variant="h6" gutterBottom>
               Recent Cases
@@ -133,7 +133,7 @@ export default function Dashboard() {
           </Paper>
         </Grid>
         
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={6}>
           <Paper sx={{ p: 2, height: 300 }}>
             <Typography variant="h6" gutterBottom>
               Recent Documents

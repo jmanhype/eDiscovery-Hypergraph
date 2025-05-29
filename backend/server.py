@@ -1,7 +1,8 @@
-from fastapi import FastAPI, HTTPException, Depends, Query
+from fastapi import FastAPI, HTTPException, Depends, Query, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import asyncio
@@ -12,24 +13,41 @@ import os
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 import nats
 import openai
-from datetime import datetime
+from datetime import datetime, timedelta
+from bson import ObjectId
 
 # Import our new models and CRUD
 try:
     from .models import (
         Document, DocumentStatus, DocumentCreateRequest, DocumentUpdateRequest, DocumentSearchRequest,
-        Case, Batch, Entity, User, AuditLog,
-        BatchCreateRequest, WorkflowInstanceRequest
+        Case, Batch, Entity, User, AuditLog, UserCreate, UserLogin, UserUpdate, Token, UserRole,
+        BatchCreateRequest, WorkflowInstanceRequest, WorkflowDefinition, WorkflowInstance, 
+        WorkflowTemplate, WorkflowStatus, WorkflowStep, WorkflowDefinitionRequest, WorkflowTemplateRequest,
+        WorkflowInstanceUpdate, WorkflowSearchRequest
     )
     from .crud import DocumentCRUD, CaseCRUD, BatchCRUD, EntityCRUD
+    from .workflow_crud import WorkflowDefinitionCRUD, WorkflowInstanceCRUD, WorkflowTemplateCRUD
+    from .workflow_engine import WorkflowExecutionEngine
+    from .auth import (
+        authenticate_user, create_access_token, get_current_user, require_role,
+        require_case_access, create_user, log_audit_event, ACCESS_TOKEN_EXPIRE_MINUTES
+    )
 except ImportError:
     # When running directly, not as module
     from models import (
         Document, DocumentStatus, DocumentCreateRequest, DocumentUpdateRequest, DocumentSearchRequest,
-        Case, Batch, Entity, User, AuditLog,
-        BatchCreateRequest, WorkflowInstanceRequest
+        Case, Batch, Entity, User, AuditLog, UserCreate, UserLogin, UserUpdate, Token, UserRole,
+        BatchCreateRequest, WorkflowInstanceRequest, WorkflowDefinition, WorkflowInstance,
+        WorkflowTemplate, WorkflowStatus, WorkflowStep, WorkflowDefinitionRequest, WorkflowTemplateRequest,
+        WorkflowInstanceUpdate, WorkflowSearchRequest
     )
     from crud import DocumentCRUD, CaseCRUD, BatchCRUD, EntityCRUD
+    from workflow_crud import WorkflowDefinitionCRUD, WorkflowInstanceCRUD, WorkflowTemplateCRUD
+    from workflow_engine import WorkflowExecutionEngine
+    from auth import (
+        authenticate_user, create_access_token, get_current_user, require_role,
+        require_case_access, create_user, log_audit_event, ACCESS_TOKEN_EXPIRE_MINUTES
+    )
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -50,6 +68,7 @@ app.add_middleware(
 mongo_client = None
 nats_connection = None
 openai_client = None
+workflow_engine = None
 
 # Pydantic models
 class EmailMetadata(BaseModel):
@@ -87,7 +106,7 @@ class ProcessEmailsResponse(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     """Initialize connections on startup"""
-    global mongo_client, nats_connection, openai_client
+    global mongo_client, nats_connection, openai_client, workflow_engine
     
     try:
         # Initialize MongoDB connection
@@ -115,6 +134,14 @@ async def startup_event():
             logger.info("OpenAI client initialized")
         else:
             logger.warning("OPENAI_API_KEY not found - AI features will be limited")
+        
+        # Initialize workflow engine
+        if mongo_client:
+            db = mongo_client.ediscovery
+            workflow_engine = WorkflowExecutionEngine(db, openai_client)
+            # Start workflow monitoring in background
+            asyncio.create_task(workflow_engine.start_workflow_monitoring())
+            logger.info("Workflow execution engine initialized")
             
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")
@@ -508,7 +535,7 @@ async def serve_demo():
 
 
 # ============================================================================
-# NEW CRUD ENDPOINTS
+# AUTHENTICATION ENDPOINTS
 # ============================================================================
 
 # Dependency to get database
@@ -518,10 +545,229 @@ async def get_db() -> AsyncIOMotorDatabase:
     return mongo_client.ediscovery
 
 
+# Helper to get current user with database access
+async def get_current_user_with_db(
+    request: Request,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+) -> User:
+    """Get current user with database dependency injected"""
+    # Import here to avoid circular imports
+    from jose import JWTError, jwt
+    from auth import SECRET_KEY, ALGORITHM, get_user_by_email
+    
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    # Get authorization header
+    authorization = request.headers.get("Authorization")
+    if not authorization:
+        raise credentials_exception
+    
+    try:
+        # Extract token from "Bearer <token>"
+        scheme, token = authorization.split()
+        if scheme.lower() != "bearer":
+            raise credentials_exception
+            
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+    except (JWTError, ValueError):
+        raise credentials_exception
+    
+    user = await get_user_by_email(db, email=email)
+    if user is None:
+        raise credentials_exception
+    
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="User account is disabled")
+    
+    return user
+
+
+@app.post("/api/auth/register", response_model=Token)
+async def register(
+    user_data: UserCreate,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Register a new user"""
+    try:
+        user = await create_user(db, user_data.dict())
+        
+        # Create access token
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": user.email}, expires_delta=access_token_expires
+        )
+        
+        # Log audit event
+        await log_audit_event(
+            db, str(user.id), "register", "user", str(user.id)
+        )
+        
+        return Token(
+            access_token=access_token,
+            token_type="bearer",
+            expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Registration error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Registration failed")
+
+
+@app.post("/api/auth/login", response_model=Token)
+async def login(
+    user_credentials: UserLogin,
+    request: Request,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Authenticate user and return access token"""
+    user = await authenticate_user(db, user_credentials.email, user_credentials.password)
+    if not user:
+        # Log failed login attempt
+        await log_audit_event(
+            db, "unknown", "failed_login", "user", user_credentials.email,
+            details={"attempted_email": user_credentials.email},
+            ip_address=getattr(request.client, 'host', None),
+            user_agent=request.headers.get("user-agent")
+        )
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Create access token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+    
+    # Log successful login
+    await log_audit_event(
+        db, str(user.id), "login", "user", str(user.id),
+        ip_address=getattr(request.client, 'host', None),
+        user_agent=request.headers.get("user-agent")
+    )
+    
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
+
+
+@app.get("/api/auth/me", response_model=User)
+async def get_current_user_info(
+    current_user: User = Depends(get_current_user_with_db)
+):
+    """Get current user information"""
+    return current_user
+
+
+@app.put("/api/auth/me", response_model=User)
+async def update_current_user(
+    user_update: UserUpdate,
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Update current user information"""
+    update_data = user_update.dict(exclude_unset=True)
+    if not update_data:
+        return current_user
+    
+    update_data["updated_at"] = datetime.utcnow()
+    
+    await db.users.update_one(
+        {"_id": ObjectId(current_user.id)},
+        {"$set": update_data}
+    )
+    
+    # Log audit event
+    await log_audit_event(
+        db, str(current_user.id), "update_profile", "user", str(current_user.id),
+        details={"updated_fields": list(update_data.keys())}
+    )
+    
+    # Return updated user
+    updated_user_data = await db.users.find_one({"_id": ObjectId(current_user.id)})
+    updated_user_data["_id"] = str(updated_user_data["_id"])
+    return User(**updated_user_data)
+
+
+# Admin-only user management
+@app.get("/api/users", response_model=List[User])
+async def list_users(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """List all users (admin only)"""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    cursor = db.users.find().skip(skip).limit(limit)
+    users = []
+    async for user_data in cursor:
+        user_data["_id"] = str(user_data["_id"])
+        users.append(User(**user_data))
+    
+    return users
+
+
+@app.put("/api/users/{user_id}", response_model=User)
+async def update_user(
+    user_id: str,
+    user_update: UserUpdate,
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Update a user (admin only)"""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    update_data = user_update.dict(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No update data provided")
+    
+    update_data["updated_at"] = datetime.utcnow()
+    
+    result = await db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Log audit event
+    await log_audit_event(
+        db, str(current_user.id), "update_user", "user", user_id,
+        details={"updated_fields": list(update_data.keys())}
+    )
+    
+    # Return updated user
+    updated_user_data = await db.users.find_one({"_id": ObjectId(user_id)})
+    updated_user_data["_id"] = str(updated_user_data["_id"])
+    return User(**updated_user_data)
+
+
+# NEW CRUD ENDPOINTS
+# ============================================================================
+
+
 # Document endpoints
 @app.post("/api/documents", response_model=Document)
 async def create_document(
     request: DocumentCreateRequest,
+    current_user: User = Depends(get_current_user_with_db),
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
     """Create a new document"""
@@ -600,6 +846,7 @@ async def delete_document(
 @app.post("/api/documents/search", response_model=List[Document])
 async def search_documents(
     search_params: DocumentSearchRequest,
+    current_user: User = Depends(get_current_user_with_db),
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
     """Search documents with filters"""
@@ -623,6 +870,7 @@ async def get_document_entities(
 @app.post("/api/cases", response_model=Case)
 async def create_case(
     case: Case,
+    current_user: User = Depends(get_current_user_with_db),
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
     """Create new case/matter"""
@@ -633,6 +881,7 @@ async def create_case(
 @app.get("/api/cases/{case_id}", response_model=Case)
 async def get_case(
     case_id: str,
+    current_user: User = Depends(get_current_user_with_db),
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
     """Get case details"""
@@ -648,6 +897,7 @@ async def get_case(
 @app.get("/api/cases", response_model=List[Case])
 async def list_cases(
     user_id: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user_with_db),
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
     """List cases (optionally filtered by user)"""
@@ -842,3 +1092,328 @@ async def process_batch_async(batch_id: str, document_ids: List[str]):
         except Exception as e:
             logger.error(f"Failed to process document {doc_id} in batch {batch_id}: {str(e)}")
             await batch_crud.update_progress(batch_id, failed=1)
+
+
+# ============================================================================
+# WORKFLOW ENDPOINTS
+# ============================================================================
+
+# Workflow Definition endpoints
+@app.post("/api/workflows/definitions", response_model=WorkflowDefinition)
+async def create_workflow_definition(
+    request: WorkflowDefinitionRequest,
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Create a new workflow definition (admin/attorney only)"""
+    if current_user.role not in [UserRole.ADMIN, UserRole.ATTORNEY]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    workflow_crud = WorkflowDefinitionCRUD(db)
+    definition = await workflow_crud.create(request, str(current_user.id))
+    
+    # Log audit event
+    await log_audit_event(
+        db, str(current_user.id), "create", "workflow_definition", str(definition.id),
+        details={"workflow_name": definition.name, "workflow_type": definition.workflow_type}
+    )
+    
+    return definition
+
+
+@app.get("/api/workflows/definitions", response_model=List[WorkflowDefinition])
+async def list_workflow_definitions(
+    workflow_type: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """List active workflow definitions"""
+    workflow_crud = WorkflowDefinitionCRUD(db)
+    definitions = await workflow_crud.list_active(workflow_type)
+    return definitions
+
+
+@app.get("/api/workflows/definitions/{definition_id}", response_model=WorkflowDefinition)
+async def get_workflow_definition(
+    definition_id: str,
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Get workflow definition by ID"""
+    workflow_crud = WorkflowDefinitionCRUD(db)
+    definition = await workflow_crud.get(definition_id)
+    
+    if not definition:
+        raise HTTPException(status_code=404, detail="Workflow definition not found")
+    
+    return definition
+
+
+# Workflow Instance endpoints
+@app.post("/api/workflows/instances", response_model=WorkflowInstance)
+async def create_workflow_instance(
+    request: WorkflowInstanceRequest,
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Create and start a new workflow instance"""
+    workflow_crud = WorkflowInstanceCRUD(db)
+    instance = await workflow_crud.create(request, str(current_user.id))
+    
+    # Log audit event
+    await log_audit_event(
+        db, str(current_user.id), "create", "workflow_instance", str(instance.id),
+        details={
+            "workflow_name": instance.workflow_name,
+            "case_id": instance.case_id,
+            "batch_id": instance.batch_id
+        }
+    )
+    
+    return instance
+
+
+@app.get("/api/workflows/instances/{instance_id}", response_model=WorkflowInstance)
+async def get_workflow_instance(
+    instance_id: str,
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Get workflow instance by ID"""
+    workflow_crud = WorkflowInstanceCRUD(db)
+    instance = await workflow_crud.get(instance_id)
+    
+    if not instance:
+        raise HTTPException(status_code=404, detail="Workflow instance not found")
+    
+    # Check access permissions
+    if (current_user.role not in [UserRole.ADMIN, UserRole.ATTORNEY] and 
+        instance.triggered_by != str(current_user.id)):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    return instance
+
+
+@app.post("/api/workflows/instances/search", response_model=List[WorkflowInstance])
+async def search_workflow_instances(
+    search_params: WorkflowSearchRequest,
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Search workflow instances"""
+    # Restrict search for non-admin users
+    if current_user.role not in [UserRole.ADMIN, UserRole.ATTORNEY]:
+        search_params.triggered_by = str(current_user.id)
+    
+    workflow_crud = WorkflowInstanceCRUD(db)
+    instances = await workflow_crud.search(search_params)
+    return instances
+
+
+@app.get("/api/workflows/instances/{instance_id}/steps", response_model=List[WorkflowStep])
+async def get_workflow_steps(
+    instance_id: str,
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Get all steps for a workflow instance"""
+    workflow_crud = WorkflowInstanceCRUD(db)
+    
+    # Check if instance exists and user has access
+    instance = await workflow_crud.get(instance_id)
+    if not instance:
+        raise HTTPException(status_code=404, detail="Workflow instance not found")
+    
+    if (current_user.role not in [UserRole.ADMIN, UserRole.ATTORNEY] and 
+        instance.triggered_by != str(current_user.id)):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    steps = await workflow_crud.get_steps(instance_id)
+    return steps
+
+
+@app.put("/api/workflows/instances/{instance_id}", response_model=WorkflowInstance)
+async def update_workflow_instance(
+    instance_id: str,
+    update: WorkflowInstanceUpdate,
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Update workflow instance status (admin/attorney only)"""
+    if current_user.role not in [UserRole.ADMIN, UserRole.ATTORNEY]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    workflow_crud = WorkflowInstanceCRUD(db)
+    instance = await workflow_crud.update_status(instance_id, update)
+    
+    if not instance:
+        raise HTTPException(status_code=404, detail="Workflow instance not found")
+    
+    # Log audit event
+    await log_audit_event(
+        db, str(current_user.id), "update", "workflow_instance", instance_id,
+        details={"update_data": update.dict(exclude_unset=True)}
+    )
+    
+    return instance
+
+
+@app.post("/api/workflows/instances/{instance_id}/cancel")
+async def cancel_workflow_instance(
+    instance_id: str,
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Cancel a running workflow instance"""
+    workflow_crud = WorkflowInstanceCRUD(db)
+    
+    # Check if instance exists and user has access
+    instance = await workflow_crud.get(instance_id)
+    if not instance:
+        raise HTTPException(status_code=404, detail="Workflow instance not found")
+    
+    if (current_user.role not in [UserRole.ADMIN, UserRole.ATTORNEY] and 
+        instance.triggered_by != str(current_user.id)):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Update status to cancelled
+    updated_instance = await workflow_crud.update_status(instance_id, 
+        WorkflowInstanceUpdate(status=WorkflowStatus.CANCELLED)
+    )
+    
+    # Log audit event
+    await log_audit_event(
+        db, str(current_user.id), "cancel", "workflow_instance", instance_id
+    )
+    
+    return {"status": "cancelled", "instance_id": instance_id}
+
+
+# Workflow Template endpoints
+@app.post("/api/workflows/templates", response_model=WorkflowTemplate)
+async def create_workflow_template(
+    request: WorkflowTemplateRequest,
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Create a new workflow template (admin/attorney only)"""
+    if current_user.role not in [UserRole.ADMIN, UserRole.ATTORNEY]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    template_crud = WorkflowTemplateCRUD(db)
+    template = await template_crud.create(request, str(current_user.id))
+    
+    # Log audit event
+    await log_audit_event(
+        db, str(current_user.id), "create", "workflow_template", str(template.id),
+        details={"template_name": template.name, "category": template.category}
+    )
+    
+    return template
+
+
+@app.get("/api/workflows/templates", response_model=List[WorkflowTemplate])
+async def list_workflow_templates(
+    category: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """List public workflow templates"""
+    template_crud = WorkflowTemplateCRUD(db)
+    templates = await template_crud.list_public(category)
+    return templates
+
+
+@app.get("/api/workflows/templates/{template_id}", response_model=WorkflowTemplate)
+async def get_workflow_template(
+    template_id: str,
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Get workflow template by ID"""
+    template_crud = WorkflowTemplateCRUD(db)
+    template = await template_crud.get(template_id)
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Workflow template not found")
+    
+    return template
+
+
+@app.post("/api/workflows/templates/{template_id}/use")
+async def use_workflow_template(
+    template_id: str,
+    input_data: Dict[str, Any],
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Create workflow instance from template"""
+    template_crud = WorkflowTemplateCRUD(db)
+    template = await template_crud.get(template_id)
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Workflow template not found")
+    
+    # Create workflow definition from template
+    definition_crud = WorkflowDefinitionCRUD(db)
+    definition_request = WorkflowDefinitionRequest(
+        name=f"{template.name} - {datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
+        description=f"Created from template: {template.name}",
+        workflow_type=template.workflow_definition.get("workflow_type", "custom"),
+        steps=template.workflow_definition.get("steps", []),
+        input_schema=template.workflow_definition.get("input_schema", {}),
+        output_schema=template.workflow_definition.get("output_schema", {})
+    )
+    
+    definition = await definition_crud.create(definition_request, str(current_user.id))
+    
+    # Create workflow instance
+    instance_request = WorkflowInstanceRequest(
+        workflow_definition_id=str(definition.id),
+        input_data={**template.default_parameters, **input_data}
+    )
+    
+    workflow_crud = WorkflowInstanceCRUD(db)
+    instance = await workflow_crud.create(instance_request, str(current_user.id))
+    
+    # Increment template usage
+    await template_crud.increment_usage(template_id)
+    
+    # Log audit event
+    await log_audit_event(
+        db, str(current_user.id), "use_template", "workflow_template", template_id,
+        details={"created_instance_id": str(instance.id)}
+    )
+    
+    return {"instance_id": str(instance.id), "template_name": template.name}
+
+
+# Workflow monitoring endpoints
+@app.get("/api/workflows/status")
+async def get_workflow_status(
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Get overall workflow system status"""
+    workflow_crud = WorkflowInstanceCRUD(db)
+    
+    # Count workflows by status
+    pipeline = [
+        {"$group": {
+            "_id": "$status",
+            "count": {"$sum": 1}
+        }}
+    ]
+    
+    status_counts = {}
+    async for doc in db.workflow_instances.aggregate(pipeline):
+        status_counts[doc["_id"]] = doc["count"]
+    
+    # Get running workflows
+    running_instances = await workflow_crud.get_running_instances()
+    
+    return {
+        "status_counts": status_counts,
+        "running_workflows": len(running_instances),
+        "engine_status": "running" if workflow_engine else "stopped"
+    }
