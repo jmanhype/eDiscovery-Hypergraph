@@ -77,9 +77,13 @@ async def startup_event():
         mongo_client = AsyncIOMotorClient(mongo_url)
         logger.info(f"Connected to MongoDB at {mongo_url}")
         
-        # Initialize NATS connection
-        nats_connection = await nats.connect("nats://localhost:4222")
-        logger.info("Connected to NATS server")
+        # Initialize NATS connection (optional)
+        try:
+            nats_connection = await nats.connect("nats://localhost:4222")
+            logger.info("Connected to NATS server")
+        except Exception as e:
+            logger.info(f"NATS not available, will use direct API calls: {str(e)}")
+            nats_connection = None
         
         # Initialize OpenAI client
         openai_api_key = os.getenv('OPENAI_API_KEY')
@@ -91,6 +95,7 @@ async def startup_event():
             
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")
+        # Don't fail startup if some connections fail
 
 @app.on_event("shutdown")
 async def shutdown_event():
