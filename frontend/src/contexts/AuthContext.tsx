@@ -47,7 +47,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const currentUser = await authApi.getCurrentUser();
           setUser(currentUser);
         }
-      } catch (error) {
+      } catch {
         // Token is invalid or expired
         authApi.removeAuthToken();
         setUser(null);
@@ -98,12 +98,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const updateUser = async (userData: Partial<User>) => {
-    try {
-      const updatedUser = await authApi.updateProfile(userData);
-      setUser(updatedUser);
-    } catch (error) {
-      throw error;
-    }
+    const updatedUser = await authApi.updateProfile(userData);
+    setUser(updatedUser);
   };
 
   const value = {

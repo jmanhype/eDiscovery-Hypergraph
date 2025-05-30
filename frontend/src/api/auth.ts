@@ -19,6 +19,7 @@ export interface AuthResponse {
 }
 
 export interface User {
+  id: string;
   _id?: string;
   email: string;
   full_name: string;

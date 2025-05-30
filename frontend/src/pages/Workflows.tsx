@@ -66,11 +66,52 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+interface WorkflowTemplate {
+  id: string;
+  _id?: string;
+  name: string;
+  description: string;
+  category: string;
+  icon: string;
+  tags?: string[];
+  usage_count?: number;
+  default_parameters?: Record<string, unknown>;
+  parameters: Array<{
+    name: string;
+    type: string;
+    required: boolean;
+    description?: string;
+  }>;
+}
+
+interface WorkflowInstance {
+  _id: string;
+  name: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  started_at?: string;
+  template_id: string;
+  progress?: number;
+}
+
+interface WorkflowDefinition {
+  id: string;
+  _id?: string;
+  name: string;
+  description: string;
+  version: string;
+  author: string;
+  workflow_type?: string;
+  steps?: number;
+  is_active?: boolean;
+}
+
 export default function Workflows() {
   const [tabValue, setTabValue] = useState(0);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
-  const [workflowParams, setWorkflowParams] = useState<any>({});
+  const [selectedTemplate, setSelectedTemplate] = useState<WorkflowTemplate | null>(null);
+  const [workflowParams, setWorkflowParams] = useState<Record<string, unknown>>({});
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { subscribe, unsubscribe, workflowUpdates } = useWebSocketContext();
@@ -107,8 +148,10 @@ export default function Workflows() {
   });
 
   // Create workflow instance
+  // Unused - keeping for future implementation
+  /*
   const createWorkflowMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: { template_id: string; parameters: Record<string, unknown> }) => {
       const { data: result } = await apiClient.post('/api/workflows/instances', data);
       return result;
     },
@@ -119,10 +162,11 @@ export default function Workflows() {
       setWorkflowParams({});
     },
   });
+  */
 
   // Use template to create workflow
   const useTemplateMutation = useMutation({
-    mutationFn: async ({ templateId, inputData }: any) => {
+    mutationFn: async ({ templateId, inputData }: { templateId: string; inputData: Record<string, unknown> }) => {
       const { data } = await apiClient.post(`/api/workflows/templates/${templateId}/use`, inputData);
       return data;
     },
@@ -134,7 +178,7 @@ export default function Workflows() {
     },
   });
 
-  const handleCreateFromTemplate = (template: any) => {
+  const handleCreateFromTemplate = (template: WorkflowTemplate) => {
     setSelectedTemplate(template);
     setWorkflowParams(template.default_parameters || {});
     setCreateDialogOpen(true);
@@ -143,7 +187,7 @@ export default function Workflows() {
   const handleSubmitWorkflow = () => {
     if (selectedTemplate) {
       useTemplateMutation.mutate({
-        templateId: selectedTemplate._id,
+        templateId: selectedTemplate._id || selectedTemplate.id,
         inputData: workflowParams,
       });
     }
@@ -200,15 +244,21 @@ export default function Workflows() {
 
   // Get real-time status for a workflow
   const getRealtimeWorkflow = (workflowId: string) => {
-    const update = workflowUpdates.get(workflowId);
-    const instance = instances.find((i: any) => i._id === workflowId);
+    const update = workflowUpdates.get(workflowId) as {
+      status?: string;
+      progress_percentage?: number;
+      current_step?: number;
+      step_name?: string;
+      message?: string;
+    } | undefined;
+    const instance = instances.find((i: WorkflowInstance) => i._id === workflowId);
     
     if (update && instance) {
       // Merge real-time update with instance data
       return {
         ...instance,
         status: update.status || instance.status,
-        progress_percentage: update.progress_percentage || instance.progress_percentage,
+        progress_percentage: update.progress_percentage || instance.progress,
         current_step: update.current_step,
         step_name: update.step_name,
         message: update.message,
@@ -255,7 +305,7 @@ export default function Workflows() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {instances.map((instance: any) => {
+                  {instances.map((instance: WorkflowInstance) => {
                     const realtimeInstance = getRealtimeWorkflow(instance._id);
                     return (
                       <TableRow key={instance._id}>
@@ -274,7 +324,7 @@ export default function Workflows() {
                             {getStatusIcon(realtimeInstance.status)}
                             <Chip
                               label={realtimeInstance.status}
-                              color={getStatusColor(realtimeInstance.status) as any}
+                              color={getStatusColor(realtimeInstance.status) as 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'}
                               size="small"
                             />
                           </Box>
@@ -321,8 +371,8 @@ export default function Workflows() {
           <TabPanel value={tabValue} index={1}>
             {/* Templates */}
             <Box display="grid" gridTemplateColumns="repeat(auto-fill, minmax(300px, 1fr))" gap={2}>
-              {templates.map((template: any) => (
-                <Card key={template._id} variant="outlined">
+              {templates.map((template: WorkflowTemplate) => (
+                <Card key={template._id || template.id} variant="outlined">
                   <CardContent>
                     <Typography variant="h6" gutterBottom>
                       {template.name}
@@ -369,13 +419,13 @@ export default function Workflows() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {definitions.map((definition: any) => (
-                    <TableRow key={definition._id}>
+                  {definitions.map((definition: WorkflowDefinition) => (
+                    <TableRow key={definition._id || definition.id}>
                       <TableCell>{definition.name}</TableCell>
                       <TableCell>
                         <Chip label={definition.workflow_type} size="small" />
                       </TableCell>
-                      <TableCell>{definition.steps?.length || 0} steps</TableCell>
+                      <TableCell>{definition.steps || 0} steps</TableCell>
                       <TableCell>{definition.version}</TableCell>
                       <TableCell>
                         {definition.is_active ? (
@@ -448,7 +498,9 @@ export default function Workflows() {
                 onChange={(e) => {
                   try {
                     setWorkflowParams(JSON.parse(e.target.value));
-                  } catch {}
+                  } catch {
+                    // Invalid JSON, ignore
+                  }
                 }}
                 margin="normal"
                 helperText="Advanced: Edit raw parameters"

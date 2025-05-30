@@ -26,7 +26,7 @@ import { format } from 'date-fns';
 
 import { documentsApi } from '../api/documents';
 import { casesApi } from '../api/cases';
-import { DocumentSearchParams, DocumentStatus, PrivilegeType } from '../types';
+import { Document, DocumentSearchParams, DocumentStatus, PrivilegeType } from '../types';
 import {
   DataTable,
   Column,
@@ -61,7 +61,7 @@ export default function Documents() {
     showError('Failed to load documents');
   }
 
-  const columns: Column<any>[] = [
+  const columns: Column<Document>[] = [
     {
       id: 'title',
       label: 'Title',
@@ -79,19 +79,19 @@ export default function Documents() {
     {
       id: 'case_id',
       label: 'Case',
-      format: (value) => cases.find((c) => c._id === value)?.name || 'Unknown',
+      format: (value) => cases.find((c) => c._id === (value as string))?.name || 'Unknown',
     },
     {
       id: 'status',
       label: 'Status',
-      format: (value) => <StatusChip status={value} showIcon />,
+      format: (value) => <StatusChip status={value as string} showIcon />,
     },
     {
       id: 'privilege_type',
       label: 'Privilege',
       format: (value) =>
-        value !== PrivilegeType.NONE ? (
-          <StatusChip status={value} showIcon={false} />
+        (value as string) !== PrivilegeType.NONE ? (
+          <StatusChip status={value as string} showIcon={false} />
         ) : (
           '-'
         ),
@@ -105,7 +105,7 @@ export default function Documents() {
     {
       id: 'created_at',
       label: 'Created',
-      format: (value) => format(new Date(value), 'MMM dd, yyyy'),
+      format: (value) => format(new Date(value as string), 'MMM dd, yyyy'),
     },
     {
       id: 'actions',
@@ -130,7 +130,7 @@ export default function Documents() {
     setSearchDialogOpen(false);
   };
 
-  const handleRowClick = (row: any) => {
+  const handleRowClick = (row: Document) => {
     navigate(`/documents/${row._id}`);
   };
 

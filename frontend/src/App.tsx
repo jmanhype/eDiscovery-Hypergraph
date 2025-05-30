@@ -19,7 +19,6 @@ import Processing from './pages/Processing';
 import Workflows from './pages/Workflows';
 import Login from './pages/Login';
 import AuditLogs from './pages/AuditLogs';
-import DocumentsGraphQL from './pages/DocumentsGraphQL';
 
 const queryClient = new QueryClient({
   defaultOptions: {

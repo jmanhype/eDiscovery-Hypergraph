@@ -2,13 +2,31 @@ import React, { createContext, useContext, useCallback, useState, useEffect } fr
 import { useWebSocket, MessageType, SubscriptionType } from '../hooks/useWebSocket';
 import { useNotification } from '../components/ui';
 
+interface WorkflowUpdate {
+  resource_id?: string;
+  status?: string;
+  message?: string;
+  error_message?: string;
+  current_step?: number;
+}
+
+interface ResourceUpdate {
+  resource_id?: string;
+  [key: string]: unknown;
+}
+
+interface NotificationData {
+  type?: string;
+  message?: string;
+}
+
 interface WebSocketContextType {
   isConnected: boolean;
   subscribe: (type: SubscriptionType, resourceId?: string) => void;
   unsubscribe: (type: SubscriptionType, resourceId?: string) => void;
-  workflowUpdates: Map<string, any>;
-  documentUpdates: Map<string, any>;
-  caseUpdates: Map<string, any>;
+  workflowUpdates: Map<string, unknown>;
+  documentUpdates: Map<string, unknown>;
+  caseUpdates: Map<string, unknown>;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -27,68 +45,83 @@ interface WebSocketProviderProps {
 
 export function WebSocketProvider({ children }: WebSocketProviderProps) {
   const { showInfo, showSuccess, showError, NotificationComponent } = useNotification();
-  const [workflowUpdates, setWorkflowUpdates] = useState(new Map<string, any>());
-  const [documentUpdates, setDocumentUpdates] = useState(new Map<string, any>());
-  const [caseUpdates, setCaseUpdates] = useState(new Map<string, any>());
+  const [workflowUpdates, setWorkflowUpdates] = useState(new Map<string, unknown>());
+  const [documentUpdates, setDocumentUpdates] = useState(new Map<string, unknown>());
+  const [caseUpdates, setCaseUpdates] = useState(new Map<string, unknown>());
 
-  const handleMessage = useCallback((message: { type: MessageType; data?: any }) => {
+  const handleMessage = useCallback((message: { type: MessageType; data?: unknown }) => {
     switch (message.type) {
       case MessageType.CONNECT:
         console.log('Connected to real-time updates');
         break;
 
       case MessageType.WORKFLOW_UPDATE:
-        if (message.data?.resource_id) {
-          setWorkflowUpdates(prev => {
-            const updated = new Map(prev);
-            updated.set(message.data.resource_id, message.data);
-            return updated;
-          });
-          
-          // Show notification for important status changes
-          if (message.data.status === 'completed') {
-            showSuccess(`Workflow completed: ${message.data.message}`);
-          } else if (message.data.status === 'failed') {
-            showError(`Workflow failed: ${message.data.error_message || message.data.message}`);
-          } else if (message.data.current_step) {
-            showInfo(`${message.data.message}`, `Step ${message.data.current_step}`);
+        {
+          const workflowData = message.data as WorkflowUpdate;
+          if (workflowData?.resource_id) {
+            setWorkflowUpdates(prev => {
+              const updated = new Map(prev);
+              updated.set(workflowData.resource_id!, workflowData);
+              return updated;
+            });
+            
+            // Show notification for important status changes
+            if (workflowData.status === 'completed') {
+              showSuccess(`Workflow completed: ${workflowData.message || ''}`);
+            } else if (workflowData.status === 'failed') {
+              showError(`Workflow failed: ${workflowData.error_message || workflowData.message || ''}`);
+            } else if (workflowData.current_step) {
+              showInfo(`${workflowData.message || ''}`, `Step ${workflowData.current_step}`);
+            }
           }
         }
         break;
 
       case MessageType.DOCUMENT_UPDATE:
-        if (message.data?.resource_id) {
-          setDocumentUpdates(prev => {
-            const updated = new Map(prev);
-            updated.set(message.data.resource_id, message.data);
-            return updated;
-          });
+        {
+          const documentData = message.data as ResourceUpdate;
+          if (documentData?.resource_id) {
+            setDocumentUpdates(prev => {
+              const updated = new Map(prev);
+              updated.set(documentData.resource_id!, documentData);
+              return updated;
+            });
+          }
         }
         break;
 
       case MessageType.CASE_UPDATE:
-        if (message.data?.resource_id) {
-          setCaseUpdates(prev => {
-            const updated = new Map(prev);
-            updated.set(message.data.resource_id, message.data);
-            return updated;
-          });
+        {
+          const caseData = message.data as ResourceUpdate;
+          if (caseData?.resource_id) {
+            setCaseUpdates(prev => {
+              const updated = new Map(prev);
+              updated.set(caseData.resource_id!, caseData);
+              return updated;
+            });
+          }
         }
         break;
 
       case MessageType.NOTIFICATION:
-        if (message.data?.type === 'error') {
-          showError(message.data.message);
-        } else if (message.data?.type === 'success') {
-          showSuccess(message.data.message);
-        } else {
-          showInfo(message.data.message);
+        {
+          const notificationData = message.data as NotificationData;
+          if (notificationData?.type === 'error') {
+            showError(notificationData.message || 'Error occurred');
+          } else if (notificationData?.type === 'success') {
+            showSuccess(notificationData.message || 'Success');
+          } else {
+            showInfo(notificationData.message || 'Notification');
+          }
         }
         break;
 
       case MessageType.ERROR:
-        console.error('WebSocket error:', message.data);
-        showError(message.data?.message || 'Connection error');
+        {
+          console.error('WebSocket error:', message.data);
+          const errorData = message.data as { message?: string };
+          showError(errorData?.message || 'Connection error');
+        }
         break;
     }
   }, [showInfo, showSuccess, showError]);
@@ -116,7 +149,9 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       setWorkflowUpdates(prev => {
         const updated = new Map(prev);
         for (const [key, value] of updated) {
-          const timestamp = new Date(value.timestamp).getTime();
+          const updateValue = value as { timestamp?: string };
+          if (!updateValue.timestamp) continue;
+          const timestamp = new Date(updateValue.timestamp).getTime();
           if (now - timestamp > maxAge) {
             updated.delete(key);
           }
@@ -128,7 +163,9 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       setDocumentUpdates(prev => {
         const updated = new Map(prev);
         for (const [key, value] of updated) {
-          const timestamp = new Date(value.timestamp).getTime();
+          const updateValue = value as { timestamp?: string };
+          if (!updateValue.timestamp) continue;
+          const timestamp = new Date(updateValue.timestamp).getTime();
           if (now - timestamp > maxAge) {
             updated.delete(key);
           }

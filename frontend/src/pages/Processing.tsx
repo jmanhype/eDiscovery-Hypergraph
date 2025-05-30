@@ -9,12 +9,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Chip,
   LinearProgress,
   Alert,
@@ -30,22 +24,40 @@ import {
   Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
-import type { ProcessEmailsRequest, EmailAnalysisResult } from '../types';
+import type { ProcessEmailsRequest } from '../types';
+
+interface ProcessingResult {
+  batch_id: string;
+  status: string;
+  processed_count: number;
+  results?: Array<{
+    document_id: string;
+    summary: string;
+    original_text?: string;
+    tags?: {
+      privileged?: boolean;
+      significant_evidence?: boolean;
+    };
+    entities?: Array<{
+      name: string;
+      type: string;
+    }>;
+  }>;
+}
 
 export default function Processing() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [emailText, setEmailText] = useState('');
-  const [processingResults, setProcessingResults] = useState<any[]>([]);
-  const queryClient = useQueryClient();
+  const [processingResults, setProcessingResults] = useState<ProcessingResult[]>([]);
 
   const processingMutation = useMutation({
     mutationFn: async (request: ProcessEmailsRequest) => {
       const { data } = await apiClient.post('/api/ediscovery/process', request);
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: ProcessingResult) => {
       // Add the new result to our results list
       setProcessingResults(prev => [data, ...prev]);
       setDialogOpen(false);
@@ -129,7 +141,7 @@ export default function Processing() {
                   </Box>
                 </AccordionSummary>
                 <AccordionDetails>
-                  {result.results?.map((docResult: any, docIndex: number) => (
+                  {result.results?.map((docResult, docIndex: number) => (
                     <Box key={docIndex} sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                       <Typography variant="h6" gutterBottom>
                         Analysis Results
@@ -169,7 +181,7 @@ export default function Processing() {
                           👥 Extracted Entities:
                         </Typography>
                         <Box display="flex" gap={1} flexWrap="wrap">
-                          {docResult.entities?.map((entity: any, entityIndex: number) => (
+                          {docResult.entities?.map((entity, entityIndex: number) => (
                             <Chip 
                               key={entityIndex}
                               label={`${entity.name} (${entity.type})`}
@@ -202,7 +214,7 @@ export default function Processing() {
                           }}
                         >
                           {docResult.original_text?.substring(0, 300)}
-                          {docResult.original_text?.length > 300 && '...'}
+                          {(docResult.original_text?.length || 0) > 300 && '...'}
                         </Typography>
                       </Box>
                     </Box>

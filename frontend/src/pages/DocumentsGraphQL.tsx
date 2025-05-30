@@ -20,13 +20,11 @@ import {
   Search as SearchIcon,
   Clear as ClearIcon,
 } from '@mui/icons-material';
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery } from '@apollo/client';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 
-import { GET_CASES } from '../graphql/queries';
-import { SEARCH_DOCUMENTS } from '../graphql/queries';
-import { DELETE_DOCUMENT } from '../graphql/mutations';
+import { GET_CASES, SEARCH_DOCUMENTS } from '../graphql/queries';
 import { DocumentStatus, PrivilegeType } from '../types';
 import {
   DataTable,
@@ -50,7 +48,7 @@ interface DocumentSearchParams {
 
 export default function DocumentsGraphQL() {
   const navigate = useNavigate();
-  const { showError, showSuccess } = useNotification();
+  const { showError } = useNotification();
   const [searchParams, setSearchParams] = useState<DocumentSearchParams>({
     skip: 0,
     limit: 25,
@@ -58,7 +56,7 @@ export default function DocumentsGraphQL() {
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
 
   // GraphQL Queries
-  const { data: documentsData, loading: documentsLoading, error: documentsError, refetch } = useQuery(
+  const { data: documentsData, loading: documentsLoading, error: documentsError } = useQuery(
     SEARCH_DOCUMENTS,
     {
       variables: { search: searchParams },
@@ -69,15 +67,8 @@ export default function DocumentsGraphQL() {
   const { data: casesData } = useQuery(GET_CASES);
 
   // GraphQL Mutations
-  const [deleteDocument] = useMutation(DELETE_DOCUMENT, {
-    onCompleted: () => {
-      showSuccess('Document deleted successfully');
-      refetch();
-    },
-    onError: (error) => {
-      showError(`Failed to delete document: ${error.message}`);
-    },
-  });
+  // Delete mutation removed as it's not currently used
+  // Can be re-added when delete functionality is implemented
 
   if (documentsError) {
     showError('Failed to load documents');
@@ -86,7 +77,20 @@ export default function DocumentsGraphQL() {
   const documents = documentsData?.documents || [];
   const cases = casesData?.cases || [];
 
-  const columns: Column<any>[] = [
+  interface GraphQLDocument {
+    id: string;
+    _id?: string;
+    title: string;
+    author?: string;
+    case?: { name: string };
+    caseId?: string;
+    status: string;
+    privilegeType?: string;
+    hasSignificantEvidence: boolean;
+    createdAt: string;
+  }
+
+  const columns: Column<GraphQLDocument>[] = [
     {
       id: 'title',
       label: 'Title',
@@ -109,14 +113,14 @@ export default function DocumentsGraphQL() {
     {
       id: 'status',
       label: 'Status',
-      format: (value) => <StatusChip status={value} showIcon />,
+      format: (value) => <StatusChip status={value as string} showIcon />,
     },
     {
       id: 'privilegeType',
       label: 'Privilege',
       format: (value) =>
-        value && value !== PrivilegeType.NONE ? (
-          <StatusChip status={value} showIcon={false} />
+        value && (value as string) !== PrivilegeType.NONE ? (
+          <StatusChip status={value as string} showIcon={false} />
         ) : (
           '-'
         ),
@@ -130,7 +134,7 @@ export default function DocumentsGraphQL() {
     {
       id: 'createdAt',
       label: 'Created',
-      format: (value) => format(new Date(value), 'MMM dd, yyyy'),
+      format: (value) => format(new Date(value as string), 'MMM dd, yyyy'),
     },
     {
       id: 'actions',
@@ -155,7 +159,7 @@ export default function DocumentsGraphQL() {
     setSearchDialogOpen(false);
   };
 
-  const handleRowClick = (row: any) => {
+  const handleRowClick = (row: GraphQLDocument) => {
     navigate(`/documents/${row.id}`);
   };
 
@@ -227,7 +231,7 @@ export default function DocumentsGraphQL() {
                   }
                 >
                   <MenuItem value="">All Cases</MenuItem>
-                  {cases.map((case_: any) => (
+                  {cases.map((case_: { id: string; name: string }) => (
                     <MenuItem key={case_.id} value={case_.id}>
                       {case_.name}
                     </MenuItem>

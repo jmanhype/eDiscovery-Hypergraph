@@ -24,10 +24,8 @@ import {
   Work as CaseIcon,
   PlayCircleOutline as ProcessingIcon,
   AccountTree as WorkflowIcon,
-  AccountCircle as AccountIcon,
   Logout as LogoutIcon,
   Security as SecurityIcon,
-  Search as SearchIcon,
   GraphicEq as GraphQLIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';

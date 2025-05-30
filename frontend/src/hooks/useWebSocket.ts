@@ -36,7 +36,7 @@ export enum SubscriptionType {
 
 interface WebSocketMessage {
   type: MessageType;
-  data?: any;
+  data?: unknown;
 }
 
 interface UseWebSocketOptions {
@@ -62,8 +62,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const [isConnected, setIsConnected] = useState(false);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-  const pingIntervalRef = useRef<NodeJS.Timeout>();
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const connect = useCallback(() => {
     if (!user || !authToken || wsRef.current?.readyState === WebSocket.OPEN) {
@@ -71,7 +71,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     }
 
     try {
-      const wsUrl = `${import.meta.env.VITE_WS_URL || 'ws://localhost:8000'}/ws/${user.id}?token=${authToken}`;
+      const wsUrl = `${import.meta.env.VITE_WS_URL || 'ws://localhost:8000'}/ws/${user.id || user._id}?token=${authToken}`;
       const ws = new WebSocket(wsUrl);
       
       ws.onopen = () => {
@@ -180,6 +180,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     return () => {
       disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authToken]); // Don't include connect/disconnect in deps to avoid loops
 
   return {

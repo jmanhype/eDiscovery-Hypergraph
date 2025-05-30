@@ -7,6 +7,8 @@ import {
   Button,
   IconButton,
   Skeleton,
+  SxProps,
+  Theme,
 } from '@mui/material';
 import { NavigateNext as NavigateNextIcon, ArrowBack as BackIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -37,7 +39,7 @@ interface PageHeaderProps {
   showBackButton?: boolean;
   onBack?: () => void;
   loading?: boolean;
-  sx?: any;
+  sx?: SxProps<Theme>;
 }
 
 export default function PageHeader({

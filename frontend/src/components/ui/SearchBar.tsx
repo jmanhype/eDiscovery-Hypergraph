@@ -10,6 +10,8 @@ import {
   Chip,
   Typography,
   Divider,
+  SxProps,
+  Theme,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -37,7 +39,7 @@ interface SearchBarProps {
   fullWidth?: boolean;
   elevation?: number;
   autoFocus?: boolean;
-  sx?: any;
+  sx?: SxProps<Theme>;
 }
 
 export default function SearchBar({

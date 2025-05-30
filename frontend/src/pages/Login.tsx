@@ -38,8 +38,9 @@ export default function Login() {
       } else {
         await login({ email, password });
       }
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Authentication failed');
+    } catch (err) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      setError(error.response?.data?.detail || 'Authentication failed');
     } finally {
       setIsLoading(false);
     }

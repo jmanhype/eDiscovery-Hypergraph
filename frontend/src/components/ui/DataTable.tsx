@@ -8,7 +8,6 @@ import {
   TableRow,
   Paper,
   TablePagination,
-  Box,
   Checkbox,
   IconButton,
   Toolbar,
@@ -16,14 +15,14 @@ import {
   Tooltip,
   alpha,
 } from '@mui/material';
-import { Delete as DeleteIcon, FilterList as FilterListIcon } from '@mui/icons-material';
+import { Delete as DeleteIcon } from '@mui/icons-material';
 
 export interface Column<T> {
   id: keyof T | string;
   label: string;
   minWidth?: number;
   align?: 'right' | 'left' | 'center';
-  format?: (value: any, row: T) => React.ReactNode;
+  format?: <V = unknown>(value: V, row: T) => React.ReactNode;
   sortable?: boolean;
 }
 
@@ -64,7 +63,7 @@ export default function DataTable<T extends { id?: string; _id?: string }>({
   const [rowsPerPage, setRowsPerPage] = React.useState(defaultRowsPerPage);
   const [selected, setSelected] = React.useState<string[]>([]);
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
 
@@ -242,13 +241,14 @@ export default function DataTable<T extends { id?: string; _id?: string }>({
                       </TableCell>
                     )}
                     {columns.map((column) => {
-                      const value = column.id.includes('.')
-                        ? column.id.split('.').reduce((o: any, p) => o?.[p], row)
-                        : (row as any)[column.id];
+                      const columnId = String(column.id);
+                      const value = columnId.includes('.')
+                        ? columnId.split('.').reduce((o: unknown, p: string) => (o as Record<string, unknown>)?.[p], row as unknown)
+                        : (row as Record<string, unknown>)[columnId];
                       
                       return (
-                        <TableCell key={column.id as string} align={column.align}>
-                          {column.format ? column.format(value, row) : value}
+                        <TableCell key={columnId} align={column.align}>
+                          {column.format ? column.format(value, row) : String(value ?? '')}
                         </TableCell>
                       );
                     })}

@@ -15,7 +15,7 @@ export interface Document {
   author?: string;
   date_created?: string;
   tags: string[];
-  custom_metadata: Record<string, any>;
+  custom_metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -143,4 +143,18 @@ export interface EmailAnalysisResult {
     type: string;
   }>;
   original_text: string;
+}
+
+export interface User {
+  id: string;
+  _id?: string;
+  email: string;
+  full_name: string;
+  role: 'admin' | 'attorney' | 'paralegal' | 'client' | 'viewer';
+  is_active: boolean;
+  case_ids: string[];
+  default_view: string;
+  email_notifications: boolean;
+  created_at: string;
+  updated_at: string;
 }

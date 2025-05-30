@@ -21,7 +21,7 @@ const authLink = setContext((_, { headers }) => {
 });
 
 // Error link - handles GraphQL errors
-const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) => {
+const errorLink = onError(({ graphQLErrors, networkError }) => {
   if (graphQLErrors) {
     graphQLErrors.forEach(({ message, locations, path }) => {
       console.error(
@@ -56,16 +56,19 @@ export const apolloClient = new ApolloClient({
         fields: {
           documents: {
             merge(existing = [], incoming) {
+              void existing; // Suppress unused variable warning
               return incoming;
             },
           },
           cases: {
             merge(existing = [], incoming) {
+              void existing; // Suppress unused variable warning
               return incoming;
             },
           },
           workflowInstances: {
             merge(existing = [], incoming) {
+              void existing; // Suppress unused variable warning
               return incoming;
             },
           },

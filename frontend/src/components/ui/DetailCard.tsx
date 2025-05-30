@@ -23,10 +23,10 @@ import {
 
 export interface DetailField {
   label: string;
-  value: any;
+  value: unknown;
   type?: 'text' | 'date' | 'chip' | 'chips' | 'custom';
   color?: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
-  formatter?: (value: any) => string | React.ReactNode;
+  formatter?: (value: unknown) => string | React.ReactNode;
   span?: 1 | 2 | 3 | 4 | 6 | 12;
 }
 
@@ -80,12 +80,12 @@ export default function DetailCard({
 
     switch (field.type) {
       case 'date':
-        return field.value ? new Date(field.value).toLocaleString() : '-';
+        return field.value ? new Date(field.value as string | number).toLocaleString() : '-';
       
       case 'chip':
         return field.value ? (
           <Chip 
-            label={field.value} 
+            label={String(field.value)} 
             size="small" 
             color={field.color || 'default'}
           />
@@ -97,7 +97,7 @@ export default function DetailCard({
             {field.value.map((item, index) => (
               <Chip 
                 key={index} 
-                label={item} 
+                label={String(item)} 
                 size="small" 
                 color={field.color || 'default'}
               />
@@ -106,10 +106,10 @@ export default function DetailCard({
         ) : '-';
       
       case 'custom':
-        return field.value || '-';
+        return field.value as React.ReactNode || '-';
       
       default:
-        return field.value?.toString() || '-';
+        return field.value ? String(field.value) : '-';
     }
   };
 

@@ -5,7 +5,6 @@ import {
   Tab,
   Tabs,
   TextField,
-  Button,
   FormControl,
   InputLabel,
   Select,
@@ -13,7 +12,6 @@ import {
   Grid,
   Typography,
   Chip,
-  IconButton,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -29,7 +27,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
 import { authApi } from '../api/auth';
-import { api } from '../api/client';
+import { apiClient } from '../api/client';
 import {
   DataTable,
   Column,
@@ -76,7 +74,7 @@ function TabPanel(props: TabPanelProps) {
 
 export default function AuditLogs() {
   const { showError, showSuccess } = useNotification();
-  const { user } = useAuth();
+  useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [filters, setFilters] = useState<AuditLogFilters>({
     limit: 50,
@@ -87,7 +85,7 @@ export default function AuditLogs() {
   const { data: auditLogs = [], isLoading: logsLoading, refetch: refetchLogs } = useQuery({
     queryKey: ['audit-logs', filters],
     queryFn: async () => {
-      const response = await api.get('/api/audit/logs', {
+      const response = await apiClient.get('/api/audit/logs', {
         params: {
           ...filters,
           start_date: filters.start_date?.toISOString(),
@@ -102,10 +100,10 @@ export default function AuditLogs() {
   });
 
   // Fetch compliance report
-  const { data: complianceReport, isLoading: reportLoading } = useQuery({
+  const { data: complianceReport } = useQuery({
     queryKey: ['compliance-report', filters.start_date, filters.end_date],
     queryFn: async () => {
-      const response = await api.get('/api/audit/compliance-report', {
+      const response = await apiClient.get('/api/audit/compliance-report', {
         params: {
           start_date: filters.start_date?.toISOString() || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
           end_date: filters.end_date?.toISOString() || new Date().toISOString(),
@@ -124,7 +122,7 @@ export default function AuditLogs() {
   const { data: retentionViolations = [], isLoading: violationsLoading } = useQuery({
     queryKey: ['retention-violations'],
     queryFn: async () => {
-      const response = await api.get('/api/audit/retention-violations', {
+      const response = await apiClient.get('/api/audit/retention-violations', {
         headers: {
           Authorization: `Bearer ${authApi.getStoredToken()}`,
         },
@@ -136,7 +134,7 @@ export default function AuditLogs() {
 
   const handleExportLogs = async () => {
     try {
-      const response = await api.post(
+      const response = await apiClient.post(
         '/api/audit/export',
         {
           filters: {
@@ -165,43 +163,58 @@ export default function AuditLogs() {
       document.body.removeChild(a);
 
       showSuccess('Audit logs exported successfully');
-    } catch (error) {
+    } catch {
       showError('Failed to export audit logs');
     }
   };
 
-  const auditColumns: Column<any>[] = [
+  interface AuditLogEntry {
+    _id?: string;
+    id?: string;
+    timestamp: string;
+    event_type: string;
+    user_id: string;
+    resource_type: string;
+    resource_id?: string;
+    compliance_metadata?: { level?: string };
+    ip_address?: string;
+  }
+
+  const auditColumns: Column<AuditLogEntry>[] = [
     {
       id: 'timestamp',
       label: 'Timestamp',
-      format: (value) => format(new Date(value), 'MMM dd, yyyy HH:mm:ss'),
+      format: (value) => format(new Date(value as string), 'MMM dd, yyyy HH:mm:ss'),
     },
     {
       id: 'event_type',
       label: 'Event Type',
-      format: (value) => (
-        <Chip
-          label={value.replace(/_/g, ' ').toUpperCase()}
-          size="small"
-          color={
-            value.includes('failed') ? 'error' :
-            value.includes('deleted') ? 'warning' :
-            'primary'
-          }
-        />
-      ),
+      format: (value) => {
+        const eventType = value as string;
+        return (
+          <Chip
+            label={eventType.replace(/_/g, ' ').toUpperCase()}
+            size="small"
+            color={
+              eventType.includes('failed') ? 'error' :
+              eventType.includes('deleted') ? 'warning' :
+              'primary'
+            }
+          />
+        );
+      },
     },
     {
       id: 'user_id',
       label: 'User',
-      format: (value) => value,
+      format: (value) => value as string,
     },
     {
       id: 'resource_type',
       label: 'Resource',
       format: (value, row) => (
         <Box>
-          <Typography variant="body2">{value}</Typography>
+          <Typography variant="body2">{value as string}</Typography>
           {row.resource_id && (
             <Typography variant="caption" color="text.secondary">
               {row.resource_id}
@@ -214,7 +227,8 @@ export default function AuditLogs() {
       id: 'compliance_metadata',
       label: 'Compliance Level',
       format: (value) => {
-        const level = value?.level || 'info';
+        const metadata = value as { level?: string } | undefined;
+        const level = metadata?.level || 'info';
         return (
           <Chip
             label={level.toUpperCase()}
@@ -231,22 +245,31 @@ export default function AuditLogs() {
     {
       id: 'ip_address',
       label: 'IP Address',
-      format: (value) => value || '-',
+      format: (value) => (value as string) || '-',
     },
   ];
 
-  const violationColumns: Column<any>[] = [
+  interface RetentionViolation {
+    _id?: string;
+    id?: string;
+    resource_type: string;
+    violation_count: number;
+    retention_days: number;
+    oldest_allowed_date: string;
+  }
+
+  const violationColumns: Column<RetentionViolation>[] = [
     {
       id: 'resource_type',
       label: 'Resource Type',
-      format: (value) => value.toUpperCase(),
+      format: (value) => (value as string).toUpperCase(),
     },
     {
       id: 'violation_count',
       label: 'Violation Count',
       format: (value) => (
         <Chip
-          label={value}
+          label={String(value)}
           color="error"
           size="small"
         />
@@ -255,12 +278,12 @@ export default function AuditLogs() {
     {
       id: 'retention_days',
       label: 'Retention Policy (days)',
-      format: (value) => value,
+      format: (value) => String(value),
     },
     {
       id: 'oldest_allowed_date',
       label: 'Oldest Allowed Date',
-      format: (value) => format(new Date(value), 'MMM dd, yyyy'),
+      format: (value) => format(new Date(value as string), 'MMM dd, yyyy'),
     },
   ];
 
@@ -358,31 +381,55 @@ export default function AuditLogs() {
                     <Grid item xs={12} md={3}>
                       <DetailCard
                         title="Critical Events"
-                        value={complianceReport.summary.critical_events}
                         subtitle="Requires immediate attention"
-                        color="error"
+                        fields={[
+                          {
+                            label: 'Count',
+                            value: complianceReport.summary.critical_events,
+                            type: 'chip',
+                            color: 'error'
+                          }
+                        ]}
                       />
                     </Grid>
                     <Grid item xs={12} md={3}>
                       <DetailCard
                         title="Warning Events"
-                        value={complianceReport.summary.warning_events}
                         subtitle="Monitor closely"
-                        color="warning"
+                        fields={[
+                          {
+                            label: 'Count',
+                            value: complianceReport.summary.warning_events,
+                            type: 'chip',
+                            color: 'warning'
+                          }
+                        ]}
                       />
                     </Grid>
                     <Grid item xs={12} md={3}>
                       <DetailCard
                         title="Login Failures"
-                        value={complianceReport.summary.login_failures}
                         subtitle="Failed authentication attempts"
+                        fields={[
+                          {
+                            label: 'Count',
+                            value: complianceReport.summary.login_failures,
+                            type: 'text'
+                          }
+                        ]}
                       />
                     </Grid>
                     <Grid item xs={12} md={3}>
                       <DetailCard
                         title="Data Exports"
-                        value={complianceReport.summary.data_exports}
                         subtitle="Data exported from system"
+                        fields={[
+                          {
+                            label: 'Count',
+                            value: complianceReport.summary.data_exports,
+                            type: 'text'
+                          }
+                        ]}
                       />
                     </Grid>
                   </Grid>
@@ -398,7 +445,7 @@ export default function AuditLogs() {
                         {Object.entries(complianceReport.details.login_failures_by_user).map(([userId, count]) => (
                           <Box key={userId} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                             <Typography variant="body2">{userId}</Typography>
-                            <Chip label={count} size="small" color="error" />
+                            <Chip label={String(count)} size="small" color="error" />
                           </Box>
                         ))}
                       </Paper>
@@ -412,7 +459,7 @@ export default function AuditLogs() {
                         {Object.entries(complianceReport.details.data_exports_by_user).map(([userId, count]) => (
                           <Box key={userId} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                             <Typography variant="body2">{userId}</Typography>
-                            <Chip label={count} size="small" color="warning" />
+                            <Chip label={String(count)} size="small" color="warning" />
                           </Box>
                         ))}
                       </Paper>

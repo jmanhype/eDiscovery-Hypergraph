@@ -1,0 +1,115 @@
+openapi: 3.0.1
+info:
+  title: A2A Agent Web API
+  version: 0.1.0
+  description: |
+    OpenAPI schema for the Phoenix A2A Agent Web API, supporting agent orchestration, story generation, summarization, and A2A protocol operations.
+servers:
+  - url: http://localhost:4000
+paths:
+  /api/agent_card:
+    get:
+      summary: Get agent metadata for discovery
+      responses:
+        '200':
+          description: Agent card JSON
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  version:
+                    type: string
+                  description:
+                    type: string
+  /api/a2a:
+    post:
+      summary: Send A2A protocol message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                sender:
+                  type: string
+                recipient:
+                  type: string
+                payload:
+                  type: object
+                task_id:
+                  type: string
+                timestamp:
+                  type: string
+      responses:
+        '200':
+          description: A2A operation result
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Error response
+  /api/story:
+    post:
+      summary: Generate a story using an LLM
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+      responses:
+        '200':
+          description: Story result
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/summarize:
+    post:
+      summary: Summarize text using an LLM
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+      responses:
+        '200':
+          description: Summary result
+          content:
+            application/json:
+              schema:
+                type: object
+  /metrics:
+    get:
+      summary: Prometheus metrics endpoint
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+  /status:
+    get:
+      summary: Health/status check
+      responses:
+        '200':
+          description: Health check result
+          content:
+            application/json:
+              schema:
+                type: object

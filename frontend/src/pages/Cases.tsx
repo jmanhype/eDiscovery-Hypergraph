@@ -27,7 +27,7 @@ import { casesApi } from '../api/cases';
 export default function Cases() {
   const navigate = useNavigate();
 
-  const { data: cases, isLoading } = useQuery({
+  const { data: cases } = useQuery({
     queryKey: ['cases'],
     queryFn: () => casesApi.list(),
   });
