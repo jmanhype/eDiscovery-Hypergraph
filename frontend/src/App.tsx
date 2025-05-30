@@ -12,6 +12,7 @@ import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail';
 import DocumentDetail from './pages/DocumentDetail';
 import Processing from './pages/Processing';
+import Workflows from './pages/Workflows';
 import Login from './pages/Login';
 
 const queryClient = new QueryClient({
@@ -86,6 +87,7 @@ function AppRoutes() {
                   <Route path="/cases" element={<Cases />} />
                   <Route path="/cases/:id" element={<CaseDetail />} />
                   <Route path="/processing" element={<Processing />} />
+                  <Route path="/workflows" element={<Workflows />} />
                 </Routes>
               </Layout>
             </ProtectedRoute>

@@ -23,6 +23,7 @@ import {
   Description as DocumentIcon,
   Work as CaseIcon,
   PlayCircleOutline as ProcessingIcon,
+  AccountTree as WorkflowIcon,
   AccountCircle as AccountIcon,
   Logout as LogoutIcon,
 } from '@mui/icons-material';
@@ -40,6 +41,7 @@ const menuItems = [
   { text: 'Documents', icon: <DocumentIcon />, path: '/documents' },
   { text: 'Cases', icon: <CaseIcon />, path: '/cases' },
   { text: 'Processing', icon: <ProcessingIcon />, path: '/processing' },
+  { text: 'Workflows', icon: <WorkflowIcon />, path: '/workflows' },
 ];
 
 export default function Layout({ children }: LayoutProps) {

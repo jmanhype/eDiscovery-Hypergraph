@@ -18,3 +18,103 @@ erl_crash.dump
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+backend/venv/
+agents/python_agents/minimal_a2a_agent/.venv/
+
+# Frontend
+node_modules/
+.pnp
+.pnp.js
+coverage/
+.next/
+out/
+build/
+dist/
+.cache
+*.local
+frontend/.env
+
+# Testing
+/coverage
+*.lcov
+.nyc_output
+
+# Production
+/build
+/dist
+
+# Misc
+.DS_Store
+*.pem
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Backend
+*.log
+*.pot
+*.pyc
+__pycache__/
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+backend/backend.log
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+
+# Environment variables
+.env
+
+# Docker
+docker-compose.override.yml
+
+# Elixir
+a2a_agent_umbrella/_build/
+a2a_agent_umbrella/deps/
+a2a_agent_umbrella/*.ez
+a2a_agent_umbrella/erl_crash.dump
+a2a_agent_umbrella/.elixir_ls/
+
+# Logs
+nats.log
+phoenix.log
