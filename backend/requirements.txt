@@ -18,3 +18,5 @@ openai>=1.0.0
 asyncio-nats-client
 python-dotenv
 email-validator
+elasticsearch[async]>=8.0.0
+strawberry-graphql[fastapi]>=0.219.0
