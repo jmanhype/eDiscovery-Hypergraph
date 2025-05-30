@@ -1,14 +1,17 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ApolloProvider } from '@apollo/client';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box, CircularProgress } from '@mui/material';
+import { apolloClient } from './graphql/client';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 import Layout from './components/layout/Layout';
 import SimpleDashboard from './pages/SimpleDashboard';
 import Documents from './pages/Documents';
+import DocumentsGraphQL from './pages/DocumentsGraphQL';
 import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail';
 import DocumentDetail from './pages/DocumentDetail';
@@ -85,6 +88,7 @@ function AppRoutes() {
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/dashboard" element={<SimpleDashboard />} />
                     <Route path="/documents" element={<Documents />} />
+                    <Route path="/documents-graphql" element={<DocumentsGraphQL />} />
                     <Route path="/documents/:id" element={<DocumentDetail />} />
                     <Route path="/cases" element={<Cases />} />
                     <Route path="/cases/:id" element={<CaseDetail />} />
@@ -103,14 +107,16 @@ function AppRoutes() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ApolloProvider client={apolloClient}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ApolloProvider>
   );
 }
 

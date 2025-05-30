@@ -1,10 +1,12 @@
-from fastapi import FastAPI, HTTPException, Depends, Query, Request
+from fastapi import FastAPI, HTTPException, Depends, Query, Request, WebSocket
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
+import strawberry
+from strawberry.fastapi import GraphQLRouter
 import asyncio
 import json
 import logging
@@ -1474,3 +1476,61 @@ async def websocket_endpoint(
     except Exception as e:
         logger.error(f"WebSocket connection error: {str(e)}")
         await websocket.close(code=1011, reason="Server error")
+
+
+# ============================================================================
+# GRAPHQL ENDPOINT
+# ============================================================================
+
+# Custom GraphQL context
+async def get_graphql_context(
+    request: Request,
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Get context for GraphQL resolvers"""
+    # Get current user from request
+    authorization = request.headers.get("Authorization")
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization header required")
+    
+    try:
+        # Extract token from "Bearer <token>"
+        scheme, token = authorization.split()
+        if scheme.lower() != "bearer":
+            raise HTTPException(status_code=401, detail="Invalid authorization scheme")
+        
+        # Validate token and get user
+        from jose import JWTError, jwt
+        from auth import SECRET_KEY, ALGORITHM, get_user_by_email
+        
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        user = await get_user_by_email(db, email=email)
+        if user is None or not user.is_active:
+            raise HTTPException(status_code=401, detail="User not found or inactive")
+        
+        return {
+            "request": request,
+            "db": db,
+            "user": user,
+        }
+    except (JWTError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Import GraphQL schema and resolvers
+from graphql_resolvers import Query, Mutation
+
+# Create GraphQL schema
+schema = strawberry.Schema(query=Query, mutation=Mutation)
+
+# Create GraphQL app
+graphql_app = GraphQLRouter(
+    schema,
+    context_getter=get_graphql_context,
+)
+
+# Mount GraphQL endpoint
+app.include_router(graphql_app, prefix="/graphql")
