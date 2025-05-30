@@ -34,6 +34,7 @@ try:
         authenticate_user, create_access_token, get_current_user, require_role,
         require_case_access, create_user, log_audit_event, ACCESS_TOKEN_EXPIRE_MINUTES
     )
+    from .audit_service import AuditService, AuditEventType, ComplianceLevel
 except ImportError:
     # When running directly, not as module
     from models import (
@@ -51,6 +52,8 @@ except ImportError:
         require_case_access, create_user, log_audit_event, ACCESS_TOKEN_EXPIRE_MINUTES
     )
     from websocket_manager import manager, MessageType
+    from elasticsearch_service import es_service
+    from audit_service import AuditService, AuditEventType, ComplianceLevel
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -72,6 +75,7 @@ mongo_client = None
 nats_connection = None
 openai_client = None
 workflow_engine = None
+audit_service = None
 
 # Pydantic models
 class EmailMetadata(BaseModel):
@@ -109,7 +113,7 @@ class ProcessEmailsResponse(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     """Initialize connections on startup"""
-    global mongo_client, nats_connection, openai_client, workflow_engine
+    global mongo_client, nats_connection, openai_client, workflow_engine, audit_service
     
     try:
         # Initialize MongoDB connection
@@ -145,6 +149,19 @@ async def startup_event():
             # Start workflow monitoring in background
             asyncio.create_task(workflow_engine.start_workflow_monitoring())
             logger.info("Workflow execution engine initialized")
+        
+        # Initialize audit service
+        if mongo_client:
+            db = mongo_client.ediscovery
+            audit_service = AuditService(db)
+            logger.info("Audit service initialized")
+        
+        # Initialize Elasticsearch
+        try:
+            await es_service.initialize()
+            logger.info("Elasticsearch service initialized")
+        except Exception as e:
+            logger.warning(f"Elasticsearch initialization failed: {str(e)} - Search features will be limited")
             
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")
@@ -159,6 +176,9 @@ async def shutdown_event():
         mongo_client.close()
     if nats_connection:
         await nats_connection.close()
+    
+    # Close Elasticsearch
+    await es_service.close()
 
 # eDiscovery Agent Endpoints
 
@@ -633,13 +653,26 @@ async def login(
     """Authenticate user and return access token"""
     user = await authenticate_user(db, user_credentials.email, user_credentials.password)
     if not user:
-        # Log failed login attempt
-        await log_audit_event(
-            db, "unknown", "failed_login", "user", user_credentials.email,
-            details={"attempted_email": user_credentials.email},
-            ip_address=getattr(request.client, 'host', None),
-            user_agent=request.headers.get("user-agent")
-        )
+        # Log failed login attempt using audit service
+        if audit_service:
+            await audit_service.log_event(
+                event_type=AuditEventType.USER_LOGIN_FAILED,
+                user_id="unknown",
+                resource_type="user",
+                resource_id=user_credentials.email,
+                details={"attempted_email": user_credentials.email},
+                ip_address=getattr(request.client, 'host', None),
+                user_agent=request.headers.get("user-agent"),
+                compliance_level=ComplianceLevel.WARNING
+            )
+        else:
+            # Fallback to old method
+            await log_audit_event(
+                db, "unknown", "failed_login", "user", user_credentials.email,
+                details={"attempted_email": user_credentials.email},
+                ip_address=getattr(request.client, 'host', None),
+                user_agent=request.headers.get("user-agent")
+            )
         raise HTTPException(
             status_code=401,
             detail="Incorrect email or password",
@@ -652,12 +685,23 @@ async def login(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
     
-    # Log successful login
-    await log_audit_event(
-        db, str(user.id), "login", "user", str(user.id),
-        ip_address=getattr(request.client, 'host', None),
-        user_agent=request.headers.get("user-agent")
-    )
+    # Log successful login using audit service
+    if audit_service:
+        await audit_service.log_event(
+            event_type=AuditEventType.USER_LOGIN,
+            user_id=str(user.id),
+            resource_type="user",
+            resource_id=str(user.id),
+            ip_address=getattr(request.client, 'host', None),
+            user_agent=request.headers.get("user-agent")
+        )
+    else:
+        # Fallback to old method
+        await log_audit_event(
+            db, str(user.id), "login", "user", str(user.id),
+            ip_address=getattr(request.client, 'host', None),
+            user_agent=request.headers.get("user-agent")
+        )
     
     return Token(
         access_token=access_token,
@@ -792,6 +836,27 @@ async def create_document(
     case_crud = CaseCRUD(db)
     await case_crud.update_document_count(request.case_id, 1)
     
+    # Log audit event
+    if audit_service:
+        await audit_service.log_event(
+            event_type=AuditEventType.DOCUMENT_CREATED,
+            user_id=str(current_user.id),
+            resource_type="document",
+            resource_id=str(created_doc.id),
+            details={
+                "case_id": request.case_id,
+                "title": request.title,
+                "source": request.source,
+                "author": request.author
+            }
+        )
+    
+    # Index document in Elasticsearch
+    try:
+        await es_service.index_document(created_doc)
+    except Exception as e:
+        logger.warning(f"Failed to index document in Elasticsearch: {str(e)}")
+    
     # Process document asynchronously
     asyncio.create_task(process_document_async(str(created_doc.id), created_doc.content))
     
@@ -801,6 +866,7 @@ async def create_document(
 @app.get("/api/documents/{document_id}", response_model=Document)
 async def get_document(
     document_id: str,
+    current_user: User = Depends(get_current_user_with_db),
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
     """Get document by ID"""
@@ -810,6 +876,19 @@ async def get_document(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
     
+    # Log audit event
+    if audit_service:
+        await audit_service.log_event(
+            event_type=AuditEventType.DOCUMENT_VIEWED,
+            user_id=str(current_user.id),
+            resource_type="document",
+            resource_id=document_id,
+            details={
+                "case_id": document.case_id,
+                "title": document.title
+            }
+        )
+    
     return document
 
 
@@ -817,6 +896,7 @@ async def get_document(
 async def update_document(
     document_id: str,
     request: DocumentUpdateRequest,
+    current_user: User = Depends(get_current_user_with_db),
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
     """Update document metadata"""
@@ -828,20 +908,68 @@ async def update_document(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
     
+    # Log audit event
+    if audit_service:
+        await audit_service.log_event(
+            event_type=AuditEventType.DOCUMENT_UPDATED,
+            user_id=str(current_user.id),
+            resource_type="document",
+            resource_id=document_id,
+            details={
+                "updated_fields": list(update_data.keys()),
+                "case_id": document.case_id
+            }
+        )
+    
+    # Re-index document in Elasticsearch
+    try:
+        await es_service.index_document(document)
+    except Exception as e:
+        logger.warning(f"Failed to re-index document in Elasticsearch: {str(e)}")
+    
     return document
 
 
 @app.delete("/api/documents/{document_id}")
 async def delete_document(
     document_id: str,
+    current_user: User = Depends(get_current_user_with_db),
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
     """Soft delete document"""
     doc_crud = DocumentCRUD(db)
     
+    # Get document details before deletion for audit log
+    document = await doc_crud.get(document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Check for legal holds
+    if audit_service:
+        holds = await audit_service.check_data_holds("document", document_id)
+        if holds:
+            raise HTTPException(
+                status_code=403, 
+                detail=f"Document is under legal hold and cannot be deleted. Active holds: {len(holds)}"
+            )
+    
     success = await doc_crud.delete(document_id)
     if not success:
         raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Log audit event
+    if audit_service:
+        await audit_service.log_event(
+            event_type=AuditEventType.DOCUMENT_DELETED,
+            user_id=str(current_user.id),
+            resource_type="document",
+            resource_id=document_id,
+            details={
+                "case_id": document.case_id,
+                "title": document.title
+            },
+            compliance_level=ComplianceLevel.WARNING
+        )
     
     return {"status": "deleted", "document_id": document_id}
 
@@ -855,6 +983,19 @@ async def search_documents(
     """Search documents with filters"""
     doc_crud = DocumentCRUD(db)
     documents = await doc_crud.search(search_params)
+    
+    # Log audit event
+    if audit_service:
+        await audit_service.log_event(
+            event_type=AuditEventType.SEARCH_PERFORMED,
+            user_id=str(current_user.id),
+            resource_type="documents",
+            details={
+                "search_params": search_params.dict(exclude_unset=True),
+                "results_count": len(documents)
+            }
+        )
+    
     return documents
 
 
@@ -878,7 +1019,29 @@ async def create_case(
 ):
     """Create new case/matter"""
     case_crud = CaseCRUD(db)
-    return await case_crud.create(case)
+    created_case = await case_crud.create(case)
+    
+    # Log audit event
+    if audit_service:
+        await audit_service.log_event(
+            event_type=AuditEventType.CASE_CREATED,
+            user_id=str(current_user.id),
+            resource_type="case",
+            resource_id=str(created_case.id),
+            details={
+                "case_name": created_case.case_name,
+                "case_type": created_case.case_type,
+                "client_name": created_case.client_name
+            }
+        )
+    
+    # Index case in Elasticsearch
+    try:
+        await es_service.index_case(created_case)
+    except Exception as e:
+        logger.warning(f"Failed to index case in Elasticsearch: {str(e)}")
+    
+    return created_case
 
 
 @app.get("/api/cases/{case_id}", response_model=Case)
@@ -893,6 +1056,18 @@ async def get_case(
     
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
+    
+    # Log audit event
+    if audit_service:
+        await audit_service.log_event(
+            event_type=AuditEventType.CASE_ACCESSED,
+            user_id=str(current_user.id),
+            resource_type="case",
+            resource_id=case_id,
+            details={
+                "case_name": case.case_name
+            }
+        )
     
     return case
 
@@ -1054,10 +1229,17 @@ async def process_document_async(document_id: str, content: str):
                 "has_significant_evidence": result.tags.get("significant_evidence", False)
             }
             
-            await doc_crud.update(document_id, update_data)
+            updated_doc = await doc_crud.update(document_id, update_data)
             
             # Add entities
             await doc_crud.add_entities(document_id, result.entities)
+            
+            # Re-index document in Elasticsearch with updated data
+            if updated_doc:
+                try:
+                    await es_service.index_document(updated_doc)
+                except Exception as e:
+                    logger.warning(f"Failed to re-index processed document in Elasticsearch: {str(e)}")
             
     except Exception as e:
         logger.error(f"Failed to process document {document_id}: {str(e)}")
@@ -1164,14 +1346,27 @@ async def create_workflow_instance(
     instance = await workflow_crud.create(request, str(current_user.id))
     
     # Log audit event
-    await log_audit_event(
-        db, str(current_user.id), "create", "workflow_instance", str(instance.id),
-        details={
-            "workflow_name": instance.workflow_name,
-            "case_id": instance.case_id,
-            "batch_id": instance.batch_id
-        }
-    )
+    if audit_service:
+        await audit_service.log_event(
+            event_type=AuditEventType.WORKFLOW_STARTED,
+            user_id=str(current_user.id),
+            resource_type="workflow_instance",
+            resource_id=str(instance.id),
+            details={
+                "workflow_name": instance.workflow_name,
+                "case_id": instance.case_id,
+                "batch_id": instance.batch_id
+            }
+        )
+    else:
+        await log_audit_event(
+            db, str(current_user.id), "create", "workflow_instance", str(instance.id),
+            details={
+                "workflow_name": instance.workflow_name,
+                "case_id": instance.case_id,
+                "batch_id": instance.batch_id
+            }
+        )
     
     return instance
 
@@ -1534,3 +1729,575 @@ graphql_app = GraphQLRouter(
 
 # Mount GraphQL endpoint
 app.include_router(graphql_app, prefix="/graphql")
+
+
+# ============================================================================
+# ELASTICSEARCH SEARCH ENDPOINTS
+# ============================================================================
+
+@app.post("/api/search/documents")
+async def search_documents_es(
+    query: str = Query("", description="Search query"),
+    case_id: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    privilege_type: Optional[str] = Query(None),
+    has_significant_evidence: Optional[bool] = Query(None),
+    tags: Optional[List[str]] = Query(None),
+    from_: int = Query(0, alias="from", ge=0),
+    size: int = Query(25, ge=1, le=100),
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """
+    Search documents using Elasticsearch with advanced filtering and highlighting
+    """
+    try:
+        # Perform search
+        results = await es_service.search_documents(
+            query=query,
+            case_id=case_id,
+            status=status,
+            privilege_type=privilege_type,
+            has_significant_evidence=has_significant_evidence,
+            tags=tags,
+            from_=from_,
+            size=size
+        )
+        
+        # Transform results
+        documents = []
+        for hit in results['hits']['hits']:
+            doc = hit['_source']
+            doc['_id'] = hit['_id']
+            doc['_score'] = hit['_score']
+            
+            # Add highlights if available
+            if 'highlight' in hit:
+                doc['_highlights'] = hit['highlight']
+            
+            documents.append(doc)
+        
+        # Log search audit event
+        await log_audit_event(
+            db, str(current_user.id), "search", "documents", None,
+            details={
+                "query": query,
+                "filters": {
+                    "case_id": case_id,
+                    "status": status,
+                    "privilege_type": privilege_type,
+                    "has_significant_evidence": has_significant_evidence,
+                    "tags": tags
+                },
+                "results_count": results['hits']['total']['value']
+            }
+        )
+        
+        return {
+            "total": results['hits']['total']['value'],
+            "documents": documents,
+            "took": results['took']
+        }
+        
+    except Exception as e:
+        logger.error(f"Document search error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Search failed")
+
+
+@app.post("/api/search/cases")
+async def search_cases_es(
+    query: str = Query("", description="Search query"),
+    status: Optional[str] = Query(None),
+    case_type: Optional[str] = Query(None),
+    tags: Optional[List[str]] = Query(None),
+    from_: int = Query(0, alias="from", ge=0),
+    size: int = Query(25, ge=1, le=100),
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """
+    Search cases using Elasticsearch
+    """
+    try:
+        results = await es_service.search_cases(
+            query=query,
+            status=status,
+            case_type=case_type,
+            tags=tags,
+            from_=from_,
+            size=size
+        )
+        
+        cases = []
+        for hit in results['hits']['hits']:
+            case = hit['_source']
+            case['_id'] = hit['_id']
+            case['_score'] = hit['_score']
+            cases.append(case)
+        
+        return {
+            "total": results['hits']['total']['value'],
+            "cases": cases,
+            "took": results['took']
+        }
+        
+    except Exception as e:
+        logger.error(f"Case search error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Search failed")
+
+
+@app.post("/api/search/entities")
+async def search_entities_es(
+    query: str = Query("", description="Search query"),
+    entity_type: Optional[str] = Query(None),
+    min_frequency: int = Query(1, ge=1),
+    from_: int = Query(0, alias="from", ge=0),
+    size: int = Query(50, ge=1, le=200),
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """
+    Search entities using Elasticsearch
+    """
+    try:
+        results = await es_service.search_entities(
+            query=query,
+            entity_type=entity_type,
+            min_frequency=min_frequency,
+            from_=from_,
+            size=size
+        )
+        
+        entities = []
+        for hit in results['hits']['hits']:
+            entity = hit['_source']
+            entity['_id'] = hit['_id']
+            entity['_score'] = hit['_score']
+            entities.append(entity)
+        
+        return {
+            "total": results['hits']['total']['value'],
+            "entities": entities,
+            "took": results['took']
+        }
+        
+    except Exception as e:
+        logger.error(f"Entity search error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Search failed")
+
+
+@app.get("/api/search/suggest")
+async def search_suggestions(
+    prefix: str = Query(..., min_length=2, max_length=50),
+    field: str = Query("content", regex="^(content|title|author|summary)$"),
+    current_user: User = Depends(get_current_user_with_db)
+):
+    """
+    Get search term suggestions/autocomplete
+    """
+    try:
+        suggestions = await es_service.suggest_search_terms(prefix, field)
+        return {"suggestions": suggestions}
+    except Exception as e:
+        logger.error(f"Suggestion error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get suggestions")
+
+
+@app.get("/api/search/aggregations/{index}")
+async def get_search_aggregations(
+    index: str,
+    field: str = Query(..., description="Field to aggregate"),
+    current_user: User = Depends(get_current_user_with_db)
+):
+    """
+    Get aggregations for faceted search (filter counts)
+    """
+    # Validate index
+    valid_indices = ["ediscovery_documents", "ediscovery_cases", "ediscovery_entities"]
+    if index not in valid_indices:
+        raise HTTPException(status_code=400, detail="Invalid index")
+    
+    # Validate field based on index
+    valid_fields = {
+        "ediscovery_documents": ["status", "privilege_type", "tags", "case_id", "author.keyword"],
+        "ediscovery_cases": ["status", "case_type", "tags", "client_name.keyword"],
+        "ediscovery_entities": ["entity_type", "case_ids"]
+    }
+    
+    if field not in valid_fields.get(index, []):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid field for index. Valid fields: {valid_fields[index]}"
+        )
+    
+    try:
+        aggregations = await es_service.get_aggregations(index, field)
+        return {
+            "field": field,
+            "aggregations": aggregations,
+            "total_buckets": len(aggregations)
+        }
+    except Exception as e:
+        logger.error(f"Aggregation error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get aggregations")
+
+
+# Advanced search endpoint with multiple indices
+@app.post("/api/search/advanced")
+async def advanced_search(
+    indices: List[str] = Query(..., description="Indices to search"),
+    query: str = Query("", description="Search query"),
+    filters: Dict[str, Any] = {},
+    from_: int = Query(0, alias="from", ge=0),
+    size: int = Query(25, ge=1, le=100),
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """
+    Advanced search across multiple indices with custom filters
+    """
+    # Validate indices
+    valid_indices = ["ediscovery_documents", "ediscovery_cases", "ediscovery_entities"]
+    for index in indices:
+        if index not in valid_indices:
+            raise HTTPException(status_code=400, detail=f"Invalid index: {index}")
+    
+    try:
+        results = {}
+        
+        # Search each index
+        for index in indices:
+            if index == "ediscovery_documents":
+                search_results = await es_service.search_documents(
+                    query=query,
+                    case_id=filters.get("case_id"),
+                    status=filters.get("status"),
+                    privilege_type=filters.get("privilege_type"),
+                    has_significant_evidence=filters.get("has_significant_evidence"),
+                    tags=filters.get("tags"),
+                    from_=from_,
+                    size=size
+                )
+            elif index == "ediscovery_cases":
+                search_results = await es_service.search_cases(
+                    query=query,
+                    status=filters.get("status"),
+                    case_type=filters.get("case_type"),
+                    tags=filters.get("tags"),
+                    from_=from_,
+                    size=size
+                )
+            elif index == "ediscovery_entities":
+                search_results = await es_service.search_entities(
+                    query=query,
+                    entity_type=filters.get("entity_type"),
+                    min_frequency=filters.get("min_frequency", 1),
+                    from_=from_,
+                    size=size
+                )
+            
+            # Process results
+            items = []
+            for hit in search_results['hits']['hits']:
+                item = hit['_source']
+                item['_id'] = hit['_id']
+                item['_score'] = hit['_score']
+                item['_index'] = hit['_index']
+                
+                if 'highlight' in hit:
+                    item['_highlights'] = hit['highlight']
+                
+                items.append(item)
+            
+            results[index] = {
+                "total": search_results['hits']['total']['value'],
+                "items": items,
+                "took": search_results['took']
+            }
+        
+        # Log advanced search
+        await log_audit_event(
+            db, str(current_user.id), "advanced_search", "multiple", None,
+            details={
+                "indices": indices,
+                "query": query,
+                "filters": filters
+            }
+        )
+        
+        return results
+        
+    except Exception as e:
+        logger.error(f"Advanced search error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Search failed")
+
+
+# ============================================================================
+# AUDIT AND COMPLIANCE ENDPOINTS
+# ============================================================================
+
+# Pydantic models for audit endpoints
+class AuditSearchRequest(BaseModel):
+    user_id: Optional[str] = None
+    event_types: Optional[List[str]] = None
+    resource_type: Optional[str] = None
+    resource_id: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    compliance_level: Optional[str] = None
+    limit: int = Query(100, ge=1, le=1000)
+    skip: int = Query(0, ge=0)
+
+
+class DataHoldRequest(BaseModel):
+    case_id: str
+    hold_type: str
+    resources: List[Dict[str, str]]
+    reason: str
+    expiry_date: Optional[datetime] = None
+
+
+class AuditExportRequest(BaseModel):
+    format: str = "json"
+    filters: AuditSearchRequest
+
+
+@app.get("/api/audit/logs")
+async def search_audit_logs(
+    search_request: AuditSearchRequest = Depends(),
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Search audit logs with filters - admin and attorney only"""
+    if current_user.role not in [UserRole.ADMIN, UserRole.ATTORNEY]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    if not audit_service:
+        raise HTTPException(status_code=503, detail="Audit service not available")
+    
+    # Convert event types from strings
+    event_types = None
+    if search_request.event_types:
+        event_types = [AuditEventType(et) for et in search_request.event_types]
+    
+    # Convert compliance level
+    compliance_level = None
+    if search_request.compliance_level:
+        compliance_level = ComplianceLevel(search_request.compliance_level)
+    
+    # Log audit log access
+    await audit_service.log_event(
+        event_type=AuditEventType.AUDIT_LOG_ACCESSED,
+        user_id=str(current_user.id),
+        resource_type="audit_logs",
+        details={"search_params": search_request.dict()},
+        compliance_level=ComplianceLevel.WARNING
+    )
+    
+    # Search logs
+    logs = await audit_service.search_audit_logs(
+        user_id=search_request.user_id,
+        event_types=event_types,
+        resource_type=search_request.resource_type,
+        resource_id=search_request.resource_id,
+        start_date=search_request.start_date,
+        end_date=search_request.end_date,
+        compliance_level=compliance_level,
+        limit=search_request.limit,
+        skip=search_request.skip
+    )
+    
+    return {
+        "logs": logs,
+        "total": len(logs),
+        "skip": search_request.skip,
+        "limit": search_request.limit
+    }
+
+
+@app.get("/api/audit/user/{user_id}/activity")
+async def get_user_activity_report(
+    user_id: str,
+    start_date: datetime = Query(...),
+    end_date: datetime = Query(...),
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Get user activity report - admin only or user's own report"""
+    if current_user.role != UserRole.ADMIN and str(current_user.id) != user_id:
+        raise HTTPException(status_code=403, detail="Cannot access other users' activity reports")
+    
+    if not audit_service:
+        raise HTTPException(status_code=503, detail="Audit service not available")
+    
+    # Log access
+    await audit_service.log_event(
+        event_type=AuditEventType.AUDIT_LOG_ACCESSED,
+        user_id=str(current_user.id),
+        resource_type="user_activity",
+        resource_id=user_id,
+        details={"start_date": start_date.isoformat(), "end_date": end_date.isoformat()}
+    )
+    
+    report = await audit_service.get_user_activity_report(user_id, start_date, end_date)
+    return report
+
+
+@app.get("/api/audit/compliance-report")
+async def generate_compliance_report(
+    start_date: datetime = Query(...),
+    end_date: datetime = Query(...),
+    include_details: bool = Query(False),
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Generate compliance report - admin only"""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if not audit_service:
+        raise HTTPException(status_code=503, detail="Audit service not available")
+    
+    # Log report generation
+    await audit_service.log_event(
+        event_type=AuditEventType.AUDIT_LOG_ACCESSED,
+        user_id=str(current_user.id),
+        resource_type="compliance_report",
+        details={
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "include_details": include_details
+        },
+        compliance_level=ComplianceLevel.CRITICAL
+    )
+    
+    report = await audit_service.get_compliance_report(start_date, end_date, include_details)
+    return report
+
+
+@app.post("/api/audit/data-hold")
+async def create_data_hold(
+    hold_request: DataHoldRequest,
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Create legal hold on data - attorney and admin only"""
+    if current_user.role not in [UserRole.ADMIN, UserRole.ATTORNEY]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    if not audit_service:
+        raise HTTPException(status_code=503, detail="Audit service not available")
+    
+    # Verify case access
+    case_crud = CaseCRUD(db)
+    case = await case_crud.get(hold_request.case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    
+    # Create hold
+    hold = await audit_service.create_data_hold(
+        case_id=hold_request.case_id,
+        user_id=str(current_user.id),
+        hold_type=hold_request.hold_type,
+        resources=hold_request.resources,
+        reason=hold_request.reason,
+        expiry_date=hold_request.expiry_date
+    )
+    
+    return {
+        "status": "success",
+        "hold_id": hold["_id"],
+        "case_id": hold["case_id"],
+        "created_at": hold["created_at"],
+        "resource_count": len(hold["resources"])
+    }
+
+
+@app.get("/api/audit/data-hold/{resource_type}/{resource_id}")
+async def check_data_holds(
+    resource_type: str,
+    resource_id: str,
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Check if a resource is under legal hold"""
+    if not audit_service:
+        raise HTTPException(status_code=503, detail="Audit service not available")
+    
+    holds = await audit_service.check_data_holds(resource_type, resource_id)
+    
+    return {
+        "resource_type": resource_type,
+        "resource_id": resource_id,
+        "under_hold": len(holds) > 0,
+        "holds": holds
+    }
+
+
+@app.post("/api/audit/export")
+async def export_audit_logs(
+    export_request: AuditExportRequest,
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Export audit logs - admin only"""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if not audit_service:
+        raise HTTPException(status_code=503, detail="Audit service not available")
+    
+    # Convert filters to dict
+    filters = export_request.filters.dict(exclude_unset=True)
+    
+    # Export logs
+    export_data = await audit_service.export_audit_logs(
+        user_id=str(current_user.id),
+        filters=filters,
+        format=export_request.format
+    )
+    
+    # Return as file download
+    from fastapi.responses import Response
+    
+    if export_request.format == "json":
+        return Response(
+            content=export_data,
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f"attachment; filename=audit_logs_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+            }
+        )
+    
+    # Add support for other formats as needed
+    raise HTTPException(status_code=400, detail="Unsupported export format")
+
+
+@app.get("/api/audit/retention-violations")
+async def check_retention_violations(
+    current_user: User = Depends(get_current_user_with_db),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """Check for data retention policy violations - admin only"""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    if not audit_service:
+        raise HTTPException(status_code=503, detail="Audit service not available")
+    
+    violations = await audit_service.get_retention_policy_violations()
+    
+    # Log compliance check
+    await audit_service.log_event(
+        event_type=AuditEventType.AUDIT_LOG_ACCESSED,
+        user_id=str(current_user.id),
+        resource_type="retention_check",
+        details={"violations_found": len(violations)},
+        compliance_level=ComplianceLevel.WARNING if violations else ComplianceLevel.INFO
+    )
+    
+    return {
+        "violations": violations,
+        "total_violations": len(violations),
+        "checked_at": datetime.utcnow().isoformat()
+    }

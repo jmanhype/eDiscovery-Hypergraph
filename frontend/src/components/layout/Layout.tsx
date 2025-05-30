@@ -26,6 +26,9 @@ import {
   AccountTree as WorkflowIcon,
   AccountCircle as AccountIcon,
   Logout as LogoutIcon,
+  Security as SecurityIcon,
+  Search as SearchIcon,
+  GraphicEq as GraphQLIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -42,6 +45,8 @@ const menuItems = [
   { text: 'Cases', icon: <CaseIcon />, path: '/cases' },
   { text: 'Processing', icon: <ProcessingIcon />, path: '/processing' },
   { text: 'Workflows', icon: <WorkflowIcon />, path: '/workflows' },
+  { text: 'Audit & Compliance', icon: <SecurityIcon />, path: '/audit', requiresRole: ['admin', 'attorney'] },
+  { text: 'Documents (GraphQL)', icon: <GraphQLIcon />, path: '/documents-graphql' },
 ];
 
 export default function Layout({ children }: LayoutProps) {
@@ -76,17 +81,24 @@ export default function Layout({ children }: LayoutProps) {
         </Typography>
       </Toolbar>
       <List>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton
-              selected={location.pathname === item.path}
-              onClick={() => navigate(item.path)}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
+        {menuItems.map((item) => {
+          // Check role requirements
+          if (item.requiresRole && user && !item.requiresRole.includes(user.role)) {
+            return null;
+          }
+          
+          return (
+            <ListItem key={item.text} disablePadding>
+              <ListItemButton
+                selected={location.pathname === item.path}
+                onClick={() => navigate(item.path)}
+              >
+                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemText primary={item.text} />
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
       </List>
     </div>
   );

@@ -18,6 +18,8 @@ import DocumentDetail from './pages/DocumentDetail';
 import Processing from './pages/Processing';
 import Workflows from './pages/Workflows';
 import Login from './pages/Login';
+import AuditLogs from './pages/AuditLogs';
+import DocumentsGraphQL from './pages/DocumentsGraphQL';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,12 +90,13 @@ function AppRoutes() {
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/dashboard" element={<SimpleDashboard />} />
                     <Route path="/documents" element={<Documents />} />
-                    <Route path="/documents-graphql" element={<DocumentsGraphQL />} />
                     <Route path="/documents/:id" element={<DocumentDetail />} />
+                    <Route path="/documents-graphql" element={<DocumentsGraphQL />} />
                     <Route path="/cases" element={<Cases />} />
                     <Route path="/cases/:id" element={<CaseDetail />} />
                     <Route path="/processing" element={<Processing />} />
                     <Route path="/workflows" element={<Workflows />} />
+                    <Route path="/audit" element={<AuditLogs />} />
                   </Routes>
                 </Layout>
               </WebSocketProvider>

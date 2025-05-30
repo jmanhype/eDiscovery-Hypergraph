@@ -9,18 +9,20 @@ from datetime import datetime
 from graphql_schema import (
     DocumentType, CaseType, BatchType, EntityType, UserType,
     WorkflowDefinitionType, WorkflowInstanceType, WorkflowTemplateType,
-    DocumentSearchInput, WorkflowSearchInput,
-    CreateDocumentInput, UpdateDocumentInput, CreateCaseInput, StartWorkflowInput
+    DocumentSearchInput, WorkflowSearchInput, ElasticsearchInput,
+    CreateDocumentInput, UpdateDocumentInput, CreateCaseInput, StartWorkflowInput,
+    SearchResult, SearchHit, HighlightFragment, AggregationResult, AggregationBucket
 )
 from models import (
     Document, DocumentStatus, PrivilegeType, DocumentSearchRequest,
-    Case, Batch, Entity, User,
+    Case, CaseStatus, Batch, Entity, User,
     WorkflowSearchRequest, WorkflowStatus,
     WorkflowInstanceRequest
 )
 from crud import DocumentCRUD, CaseCRUD, BatchCRUD, EntityCRUD
 from workflow_crud import WorkflowDefinitionCRUD, WorkflowInstanceCRUD, WorkflowTemplateCRUD
-from auth import get_current_user, require_role, UserRole
+from auth import get_current_user, require_role, UserRole, log_audit_event
+from elasticsearch_service import es_service
 
 
 @strawberry.type
@@ -56,6 +58,155 @@ class Query:
             documents = await doc_crud.search(search_params)
         
         return [DocumentType.from_model(doc) for doc in documents]
+    
+    # Elasticsearch Search Queries
+    @strawberry.field
+    async def search_documents_es(self, info: Info, search: ElasticsearchInput) -> SearchResult:
+        """Search documents using Elasticsearch with highlighting"""
+        db = info.context["db"]
+        user = info.context["user"]
+        
+        try:
+            # Perform search
+            results = await es_service.search_documents(
+                query=search.query,
+                case_id=search.case_id,
+                status=search.status,
+                privilege_type=search.privilege_type,
+                has_significant_evidence=search.has_significant_evidence,
+                tags=search.tags,
+                from_=search.from_,
+                size=search.size
+            )
+            
+            # Transform results
+            hits = []
+            for hit in results['hits']['hits']:
+                highlights = None
+                if 'highlight' in hit:
+                    highlights = []
+                    for field, fragments in hit['highlight'].items():
+                        highlights.append(HighlightFragment(
+                            field=field,
+                            fragments=fragments
+                        ))
+                
+                hits.append(SearchHit(
+                    id=hit['_id'],
+                    score=hit['_score'],
+                    source=hit['_source'],
+                    highlights=highlights
+                ))
+            
+            # Log search
+            await log_audit_event(
+                db, str(user.id), "graphql_search", "documents", None,
+                details={"query": search.query, "filters": search.__dict__}
+            )
+            
+            return SearchResult(
+                total=results['hits']['total']['value'],
+                took=results['took'],
+                hits=hits
+            )
+        except Exception as e:
+            raise Exception(f"Search failed: {str(e)}")
+    
+    @strawberry.field
+    async def search_cases_es(self, info: Info, query: str = "", 
+                             status: Optional[str] = None,
+                             case_type: Optional[str] = None,
+                             tags: Optional[List[str]] = None) -> SearchResult:
+        """Search cases using Elasticsearch"""
+        try:
+            results = await es_service.search_cases(
+                query=query,
+                status=status,
+                case_type=case_type,
+                tags=tags,
+                from_=0,
+                size=25
+            )
+            
+            hits = []
+            for hit in results['hits']['hits']:
+                hits.append(SearchHit(
+                    id=hit['_id'],
+                    score=hit['_score'],
+                    source=hit['_source'],
+                    highlights=None
+                ))
+            
+            return SearchResult(
+                total=results['hits']['total']['value'],
+                took=results['took'],
+                hits=hits
+            )
+        except Exception as e:
+            raise Exception(f"Search failed: {str(e)}")
+    
+    @strawberry.field
+    async def search_entities_es(self, info: Info, query: str = "",
+                                entity_type: Optional[str] = None,
+                                min_frequency: int = 1) -> SearchResult:
+        """Search entities using Elasticsearch"""
+        try:
+            results = await es_service.search_entities(
+                query=query,
+                entity_type=entity_type,
+                min_frequency=min_frequency,
+                from_=0,
+                size=50
+            )
+            
+            hits = []
+            for hit in results['hits']['hits']:
+                hits.append(SearchHit(
+                    id=hit['_id'],
+                    score=hit['_score'],
+                    source=hit['_source'],
+                    highlights=None
+                ))
+            
+            return SearchResult(
+                total=results['hits']['total']['value'],
+                took=results['took'],
+                hits=hits
+            )
+        except Exception as e:
+            raise Exception(f"Search failed: {str(e)}")
+    
+    @strawberry.field
+    async def search_suggestions(self, info: Info, prefix: str, field: str = "content") -> List[str]:
+        """Get search suggestions/autocomplete"""
+        try:
+            suggestions = await es_service.suggest_search_terms(prefix, field)
+            return suggestions
+        except Exception as e:
+            raise Exception(f"Failed to get suggestions: {str(e)}")
+    
+    @strawberry.field
+    async def get_aggregations(self, info: Info, index: str, field: str) -> AggregationResult:
+        """Get aggregations for faceted search"""
+        # Validate index
+        valid_indices = ["ediscovery_documents", "ediscovery_cases", "ediscovery_entities"]
+        if index not in valid_indices:
+            raise Exception(f"Invalid index: {index}")
+        
+        try:
+            aggregations = await es_service.get_aggregations(index, field)
+            buckets = [
+                AggregationBucket(key=key, doc_count=count)
+                for key, count in aggregations.items()
+            ]
+            
+            return AggregationResult(
+                field=field,
+                buckets=buckets,
+                total_buckets=len(buckets)
+            )
+        except Exception as e:
+            raise Exception(f"Failed to get aggregations: {str(e)}")
     
     # Case Queries
     @strawberry.field
@@ -241,6 +392,14 @@ class Mutation:
         case_crud = CaseCRUD(db)
         await case_crud.update_document_count(input.case_id, 1)
         
+        # Index document in Elasticsearch
+        try:
+            await es_service.index_document(created_doc)
+        except Exception as e:
+            # Log but don't fail the mutation
+            import logging
+            logging.warning(f"Failed to index document in Elasticsearch: {str(e)}")
+        
         # TODO: Trigger async processing
         
         return DocumentType.from_model(created_doc)
@@ -261,6 +420,13 @@ class Mutation:
         document = await doc_crud.update(input.id, update_data)
         if not document:
             raise Exception("Document not found")
+        
+        # Re-index document in Elasticsearch
+        try:
+            await es_service.index_document(document)
+        except Exception as e:
+            import logging
+            logging.warning(f"Failed to re-index document in Elasticsearch: {str(e)}")
         
         return DocumentType.from_model(document)
     
@@ -292,6 +458,14 @@ class Mutation:
         )
         
         created_case = await case_crud.create(case)
+        
+        # Index case in Elasticsearch
+        try:
+            await es_service.index_case(created_case)
+        except Exception as e:
+            import logging
+            logging.warning(f"Failed to index case in Elasticsearch: {str(e)}")
+        
         return CaseType.from_model(created_case)
     
     @strawberry.mutation

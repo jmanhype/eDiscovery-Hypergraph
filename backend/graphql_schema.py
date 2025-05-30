@@ -408,6 +408,53 @@ class DocumentSearchInput:
 
 
 @strawberry.input
+class ElasticsearchInput:
+    query: str
+    case_id: Optional[str] = None
+    status: Optional[str] = None
+    privilege_type: Optional[str] = None
+    has_significant_evidence: Optional[bool] = None
+    tags: Optional[List[str]] = None
+    from_: int = 0
+    size: int = 25
+
+
+# Search Result Types
+@strawberry.type
+class HighlightFragment:
+    field: str
+    fragments: List[str]
+
+
+@strawberry.type
+class SearchHit:
+    id: str
+    score: float
+    source: strawberry.scalars.JSON
+    highlights: Optional[List[HighlightFragment]] = None
+
+
+@strawberry.type
+class SearchResult:
+    total: int
+    took: int
+    hits: List[SearchHit]
+
+
+@strawberry.type
+class AggregationBucket:
+    key: str
+    doc_count: int
+
+
+@strawberry.type
+class AggregationResult:
+    field: str
+    buckets: List[AggregationBucket]
+    total_buckets: int
+
+
+@strawberry.input
 class WorkflowSearchInput:
     case_id: Optional[str] = None
     batch_id: Optional[str] = None
