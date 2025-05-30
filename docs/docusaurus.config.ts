@@ -6,6 +6,11 @@ const config: Config = {
   title: 'eDiscovery Hypergraph',
   tagline: 'AI-Powered Legal Document Analysis Platform',
   favicon: 'img/favicon.ico',
+  
+  themes: ['@docusaurus/theme-mermaid'],
+  markdown: {
+    mermaid: true,
+  },
 
   future: {
     v4: true,

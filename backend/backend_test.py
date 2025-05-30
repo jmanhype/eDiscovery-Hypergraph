@@ -9,10 +9,14 @@ import os
 # Add the backend directory to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Import after path is set
-from server import app
-
-client = TestClient(app)
+try:
+    # Import after path is set
+    from server import app
+    client = TestClient(app)
+except ImportError as e:
+    print(f"Import error: {e}")
+    print("Make sure all dependencies are installed")
+    sys.exit(1)
 
 
 def test_health_check():

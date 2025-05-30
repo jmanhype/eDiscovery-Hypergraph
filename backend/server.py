@@ -180,6 +180,12 @@ async def shutdown_event():
     # Close Elasticsearch
     await es_service.close()
 
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy"}
+
 # eDiscovery Agent Endpoints
 
 @app.post("/api/ediscovery/process", response_model=ProcessEmailsResponse)
