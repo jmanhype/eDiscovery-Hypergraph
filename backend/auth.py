@@ -242,3 +242,15 @@ async def log_audit_event(
     }
     
     await db.audit_logs.insert_one(audit_log)
+
+
+async def get_user_by_id(db: AsyncIOMotorDatabase, user_id: str) -> Optional[User]:
+    """Get user by ID"""
+    try:
+        user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
+        if user_doc:
+            user_doc["_id"] = str(user_doc["_id"])
+            return User(**user_doc)
+    except:
+        pass
+    return None

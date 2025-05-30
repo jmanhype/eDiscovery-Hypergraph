@@ -3,6 +3,7 @@ import { authApi, User, LoginRequest, RegisterRequest } from '../api/auth';
 
 interface AuthContextType {
   user: User | null;
+  authToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginRequest) => Promise<void>;
@@ -27,6 +28,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const isAuthenticated = !!user;
@@ -41,6 +43,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Try to get current user if token exists
         const token = authApi.getStoredToken();
         if (token) {
+          setAuthToken(token);
           const currentUser = await authApi.getCurrentUser();
           setUser(currentUser);
         }
@@ -60,12 +63,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const authResponse = await authApi.login(credentials);
       authApi.setAuthToken(authResponse.access_token);
+      setAuthToken(authResponse.access_token);
       
       // Get user details
       const currentUser = await authApi.getCurrentUser();
       setUser(currentUser);
     } catch (error) {
       authApi.removeAuthToken();
+      setAuthToken(null);
       throw error;
     }
   };
@@ -74,12 +79,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const authResponse = await authApi.register(userData);
       authApi.setAuthToken(authResponse.access_token);
+      setAuthToken(authResponse.access_token);
       
       // Get user details
       const currentUser = await authApi.getCurrentUser();
       setUser(currentUser);
     } catch (error) {
       authApi.removeAuthToken();
+      setAuthToken(null);
       throw error;
     }
   };
@@ -87,6 +94,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     authApi.removeAuthToken();
     setUser(null);
+    setAuthToken(null);
   };
 
   const updateUser = async (userData: Partial<User>) => {
@@ -100,6 +108,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const value = {
     user,
+    authToken,
     isAuthenticated,
     isLoading,
     login,

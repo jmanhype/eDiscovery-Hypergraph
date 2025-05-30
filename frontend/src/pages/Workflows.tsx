@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -41,6 +41,8 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import { useWebSocketContext } from '../contexts/WebSocketContext';
+import { SubscriptionType } from '../hooks/useWebSocket';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -71,6 +73,7 @@ export default function Workflows() {
   const [workflowParams, setWorkflowParams] = useState<any>({});
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { subscribe, unsubscribe, workflowUpdates } = useWebSocketContext();
 
   // Fetch workflow templates
   const { data: templates = [] } = useQuery({
@@ -178,6 +181,43 @@ export default function Workflows() {
 
   const canCreateWorkflows = user?.role === 'admin' || user?.role === 'attorney';
 
+  // Subscribe to workflow updates
+  useEffect(() => {
+    subscribe(SubscriptionType.WORKFLOW, '*');
+    
+    return () => {
+      unsubscribe(SubscriptionType.WORKFLOW, '*');
+    };
+  }, [subscribe, unsubscribe]);
+
+  // Update workflow instances when we receive WebSocket updates
+  useEffect(() => {
+    if (workflowUpdates.size > 0) {
+      // Refetch workflow instances to get latest data
+      queryClient.invalidateQueries({ queryKey: ['workflow-instances'] });
+    }
+  }, [workflowUpdates, queryClient]);
+
+  // Get real-time status for a workflow
+  const getRealtimeWorkflow = (workflowId: string) => {
+    const update = workflowUpdates.get(workflowId);
+    const instance = instances.find((i: any) => i._id === workflowId);
+    
+    if (update && instance) {
+      // Merge real-time update with instance data
+      return {
+        ...instance,
+        status: update.status || instance.status,
+        progress_percentage: update.progress_percentage || instance.progress_percentage,
+        current_step: update.current_step,
+        step_name: update.step_name,
+        message: update.message,
+      };
+    }
+    
+    return instance;
+  };
+
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -215,31 +255,42 @@ export default function Workflows() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {instances.map((instance: any) => (
-                    <TableRow key={instance._id}>
-                      <TableCell>{instance.workflow_name}</TableCell>
-                      <TableCell>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          {getStatusIcon(instance.status)}
-                          <Chip
-                            label={instance.status}
-                            color={getStatusColor(instance.status) as any}
-                            size="small"
-                          />
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <LinearProgress
-                            variant="determinate"
-                            value={instance.progress_percentage || 0}
-                            sx={{ width: 100 }}
-                          />
-                          <Typography variant="body2">
-                            {Math.round(instance.progress_percentage || 0)}%
-                          </Typography>
-                        </Box>
-                      </TableCell>
+                  {instances.map((instance: any) => {
+                    const realtimeInstance = getRealtimeWorkflow(instance._id);
+                    return (
+                      <TableRow key={instance._id}>
+                        <TableCell>
+                          <Box>
+                            <Typography variant="body2">{realtimeInstance.workflow_name}</Typography>
+                            {realtimeInstance.step_name && realtimeInstance.status === 'running' && (
+                              <Typography variant="caption" color="text.secondary">
+                                Current: {realtimeInstance.step_name}
+                              </Typography>
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            {getStatusIcon(realtimeInstance.status)}
+                            <Chip
+                              label={realtimeInstance.status}
+                              color={getStatusColor(realtimeInstance.status) as any}
+                              size="small"
+                            />
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <LinearProgress
+                              variant={realtimeInstance.status === 'running' ? 'indeterminate' : 'determinate'}
+                              value={realtimeInstance.progress_percentage || 0}
+                              sx={{ width: 100 }}
+                            />
+                            <Typography variant="body2">
+                              {Math.round(realtimeInstance.progress_percentage || 0)}%
+                            </Typography>
+                          </Box>
+                        </TableCell>
                       <TableCell>
                         {instance.started_at
                           ? new Date(instance.started_at).toLocaleString()
@@ -260,7 +311,8 @@ export default function Workflows() {
                         )}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>

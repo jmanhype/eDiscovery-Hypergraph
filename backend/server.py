@@ -48,6 +48,7 @@ except ImportError:
         authenticate_user, create_access_token, get_current_user, require_role,
         require_case_access, create_user, log_audit_event, ACCESS_TOKEN_EXPIRE_MINUTES
     )
+    from websocket_manager import manager, MessageType
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -1417,3 +1418,59 @@ async def get_workflow_status(
         "running_workflows": len(running_instances),
         "engine_status": "running" if workflow_engine else "stopped"
     }
+
+
+# ============================================================================
+# WEBSOCKET ENDPOINTS
+# ============================================================================
+
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    user_id: str,
+    token: str = Query(...),
+    db: AsyncIOMotorDatabase = Depends(get_db)
+):
+    """WebSocket endpoint for real-time updates"""
+    try:
+        # Validate token and get user
+        from jose import JWTError, jwt
+        from auth import SECRET_KEY, ALGORITHM, get_user_by_id
+        
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            email: str = payload.get("sub")
+            if email is None or user_id is None:
+                await websocket.close(code=1008, reason="Invalid credentials")
+                return
+        except JWTError:
+            await websocket.close(code=1008, reason="Invalid token")
+            return
+        
+        # Get user from database
+        user = await get_user_by_id(db, user_id)
+        if not user or not user.is_active:
+            await websocket.close(code=1008, reason="User not found or inactive")
+            return
+        
+        # Connect the websocket
+        await manager.connect(websocket, user_id, user.role)
+        
+        try:
+            # Subscribe user to their own notifications
+            await manager.subscribe(user_id, "user", user_id)
+            
+            # Handle incoming messages
+            while True:
+                data = await websocket.receive_json()
+                await manager.handle_message(websocket, user_id, data)
+                
+        except WebSocketDisconnect:
+            await manager.disconnect(websocket, user_id)
+        except Exception as e:
+            logger.error(f"WebSocket error for user {user_id}: {str(e)}")
+            await manager.disconnect(websocket, user_id)
+            
+    except Exception as e:
+        logger.error(f"WebSocket connection error: {str(e)}")
+        await websocket.close(code=1011, reason="Server error")

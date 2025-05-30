@@ -11,6 +11,7 @@ import openai
 
 from models import WorkflowStatus, WorkflowInstance, WorkflowStep
 from workflow_crud import WorkflowInstanceCRUD
+from websocket_manager import manager
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,12 @@ class WorkflowExecutionEngine:
 
             # Mark as started
             await self.workflow_crud.start_execution(instance_id)
+            
+            # Send WebSocket update
+            await manager.send_workflow_update(instance_id, {
+                "status": WorkflowStatus.RUNNING,
+                "message": f"Workflow {instance.workflow_name} started"
+            })
             
             # Get workflow steps
             steps = await self.workflow_crud.get_steps(instance_id)
@@ -72,6 +79,13 @@ class WorkflowExecutionEngine:
                 "output_data": current_context
             })
             
+            # Send WebSocket update
+            await manager.send_workflow_update(instance_id, {
+                "status": WorkflowStatus.COMPLETED,
+                "message": f"Workflow completed successfully",
+                "output_data": current_context
+            })
+            
             logger.info(f"Workflow {instance_id} completed successfully")
             return True
 
@@ -88,6 +102,16 @@ class WorkflowExecutionEngine:
                 "status": WorkflowStatus.RUNNING,
                 "started_at": datetime.utcnow(),
                 "input_data": context
+            })
+            
+            # Send WebSocket update for step progress
+            progress = (step.step_number / len(await self.workflow_crud.get_steps(instance_id))) * 100
+            await manager.send_workflow_update(instance_id, {
+                "status": WorkflowStatus.RUNNING,
+                "current_step": step.step_number,
+                "step_name": step.step_name,
+                "progress_percentage": progress,
+                "message": f"Executing step: {step.step_name}"
             })
 
             # Execute based on step type
@@ -355,6 +379,13 @@ class WorkflowExecutionEngine:
         await self.workflow_crud.update_status(instance_id, {
             "status": WorkflowStatus.FAILED,
             "error_message": error_message
+        })
+        
+        # Send WebSocket update
+        await manager.send_workflow_update(instance_id, {
+            "status": WorkflowStatus.FAILED,
+            "error_message": error_message,
+            "message": f"Workflow failed: {error_message}"
         })
 
     async def start_workflow_monitoring(self):

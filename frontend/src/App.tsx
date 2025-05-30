@@ -5,6 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { Box, CircularProgress } from '@mui/material';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { WebSocketProvider } from './contexts/WebSocketContext';
 import Layout from './components/layout/Layout';
 import SimpleDashboard from './pages/SimpleDashboard';
 import Documents from './pages/Documents';
@@ -78,18 +79,20 @@ function AppRoutes() {
           path="/*"
           element={
             <ProtectedRoute>
-              <Layout>
-                <Routes>
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<SimpleDashboard />} />
-                  <Route path="/documents" element={<Documents />} />
-                  <Route path="/documents/:id" element={<DocumentDetail />} />
-                  <Route path="/cases" element={<Cases />} />
-                  <Route path="/cases/:id" element={<CaseDetail />} />
-                  <Route path="/processing" element={<Processing />} />
-                  <Route path="/workflows" element={<Workflows />} />
-                </Routes>
-              </Layout>
+              <WebSocketProvider>
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/dashboard" element={<SimpleDashboard />} />
+                    <Route path="/documents" element={<Documents />} />
+                    <Route path="/documents/:id" element={<DocumentDetail />} />
+                    <Route path="/cases" element={<Cases />} />
+                    <Route path="/cases/:id" element={<CaseDetail />} />
+                    <Route path="/processing" element={<Processing />} />
+                    <Route path="/workflows" element={<Workflows />} />
+                  </Routes>
+                </Layout>
+              </WebSocketProvider>
             </ProtectedRoute>
           }
         />
