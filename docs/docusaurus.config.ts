@@ -90,11 +90,11 @@ const config: Config = {
             },
             {
               label: 'Architecture',
-              to: '/architecture/overview',
+              to: '/architecture/architecture-overview',
             },
             {
               label: 'API Reference',
-              to: '/api/rest',
+              to: '/api/rest-api',
             },
           ],
         },

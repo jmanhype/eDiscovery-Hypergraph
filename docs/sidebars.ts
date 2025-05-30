@@ -28,7 +28,7 @@ const sidebars: SidebarsConfig = {
       label: 'Architecture',
       collapsed: false,
       items: [
-        'architecture/overview',
+        'architecture/architecture-overview',
         'architecture/hypergraph-integration',
         'architecture/system-components',
       ],
@@ -49,9 +49,9 @@ const sidebars: SidebarsConfig = {
       label: 'API Reference',
       collapsed: false,
       items: [
-        'api/rest',
-        'api/graphql',
-        'api/websocket',
+        'api/rest-api',
+        'api/graphql-api',
+        'api/websocket-api',
       ],
     },
     {
@@ -59,8 +59,8 @@ const sidebars: SidebarsConfig = {
       label: 'Deployment',
       collapsed: false,
       items: [
-        'deployment/docker',
-        'deployment/production',
+        'deployment/docker-deployment',
+        'deployment/production-deployment',
       ],
     },
     {
