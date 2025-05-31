@@ -674,5 +674,5 @@ end
 
 - Learn about [Compliance Features](/features/compliance)
 - Explore [Workflow Automation](/features/workflows)
-- Review [REST API](/api/rest) for search endpoints
-- Check [GraphQL API](/api/graphql) for complex queries
+- Review [REST API](/api/rest-api) for search endpoints
+- Check [GraphQL API](/api/graphql-api) for complex queries

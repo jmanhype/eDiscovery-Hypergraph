@@ -982,7 +982,7 @@ query GetDocument($id: ID!) {
 
 ## Next Steps
 
-- Explore [WebSocket API](/api/websocket) for real-time features
-- Review [REST API](/api/rest) for simpler operations
+- Explore [WebSocket API](/api/websocket-api) for real-time features
+- Review [REST API](/api/rest-api) for simpler operations
 - Check [Examples](/examples) for common patterns
 - Visit [Support](/support) for help

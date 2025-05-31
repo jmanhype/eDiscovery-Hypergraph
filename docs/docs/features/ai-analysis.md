@@ -524,4 +524,4 @@ ORDER BY operation_count DESC;
 - Explore [Search Capabilities](/features/search)
 - Learn about [Compliance Features](/features/compliance)
 - Understand [Workflow Automation](/features/workflows)
-- Review [API Documentation](/api/rest) for AI endpoints
+- Review [API Documentation](/api/rest-api) for AI endpoints

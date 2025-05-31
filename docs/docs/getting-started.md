@@ -204,9 +204,9 @@ mix workflow.run workflows/my-workflow.yaml \
 Now that you have the platform running:
 
 1. **Explore Features**: Learn about [AI Analysis](/features/ai-analysis), [Search](/features/search), and [Workflows](/features/workflows)
-2. **Understand Architecture**: Deep dive into the [system architecture](/architecture/overview)
-3. **API Integration**: Connect your applications using our [REST](/api/rest) and [GraphQL](/api/graphql) APIs
-4. **Deploy to Production**: Follow our [production deployment guide](/deployment/production)
+2. **Understand Architecture**: Deep dive into the [system architecture](/architecture/architecture-overview)
+3. **API Integration**: Connect your applications using our [REST](/api/rest-api) and [GraphQL](/api/graphql-api) APIs
+4. **Deploy to Production**: Follow our [production deployment guide](/deployment/production-deployment)
 
 ## Troubleshooting
 
@@ -249,6 +249,6 @@ curl https://api.openai.com/v1/models \
 Congratulations! You've successfully set up the eDiscovery Hypergraph platform. Here are some recommended next steps:
 
 - [Create your first workflow](/features/workflows)
-- [Integrate with your existing systems](/api/rest)
+- [Integrate with your existing systems](/api/rest-api)
 - [Set up user roles and permissions](/features/compliance#access-control)
 - [Configure advanced AI settings](/features/ai-analysis#configuration)

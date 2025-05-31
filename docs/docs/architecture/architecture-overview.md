@@ -338,4 +338,4 @@ spec:
 - Learn about [Hypergraph Integration](/architecture/hypergraph-integration)
 - Explore [System Components](/architecture/system-components) in detail
 - Understand [AI Analysis](/features/ai-analysis) capabilities
-- Review [API Documentation](/api/rest)
+- Review [API Documentation](/api/rest-api)

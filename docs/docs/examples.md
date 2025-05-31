@@ -1342,6 +1342,6 @@ if results['failed_documents']:
 
 ## Next Steps
 
-- Review [API Documentation](/api/rest) for detailed endpoint information
-- Check [Deployment Guide](/deployment/production) for running these examples in production
+- Review [API Documentation](/api/rest-api) for detailed endpoint information
+- Check [Deployment Guide](/deployment/production-deployment) for running these examples in production
 - See [Support](/support) for troubleshooting and best practices

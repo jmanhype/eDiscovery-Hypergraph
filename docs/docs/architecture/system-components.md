@@ -595,4 +595,4 @@ end
 - Learn about [AI Analysis](/features/ai-analysis) capabilities
 - Explore [Search](/features/search) functionality
 - Understand [Workflows](/features/workflows)
-- Review [API Documentation](/api/rest)
+- Review [API Documentation](/api/rest-api)

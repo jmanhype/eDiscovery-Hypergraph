@@ -835,7 +835,7 @@ client.post("/documents/process", json={
 
 ## Next Steps
 
-- Explore [GraphQL API](/api/graphql) for complex queries
-- Learn about [WebSocket API](/api/websocket) for real-time updates
+- Explore [GraphQL API](/api/graphql-api) for complex queries
+- Learn about [WebSocket API](/api/websocket-api) for real-time updates
 - Review [Examples](/examples) for common use cases
 - Check [Support](/support) for additional help

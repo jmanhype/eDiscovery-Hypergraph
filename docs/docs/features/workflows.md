@@ -967,7 +967,7 @@ end
 
 ## Next Steps
 
-- Review [API Documentation](/api/rest) for workflow endpoints
+- Review [API Documentation](/api/rest-api) for workflow endpoints
 - Check [Examples](/examples) for real-world workflows
-- Learn about [Deployment](/deployment/production) considerations
+- Learn about [Deployment](/deployment/production-deployment) considerations
 - Explore [Support](/support) resources

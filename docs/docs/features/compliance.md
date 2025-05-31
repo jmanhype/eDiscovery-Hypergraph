@@ -776,6 +776,6 @@ end
 ## Next Steps
 
 - Explore [Workflow Automation](/features/workflows)
-- Review [REST API](/api/rest) compliance endpoints
-- Check [Deployment Guide](/deployment/production) for security configuration
+- Review [REST API](/api/rest-api) compliance endpoints
+- Check [Deployment Guide](/deployment/production-deployment) for security configuration
 - Read [Examples](/examples) of compliance implementations

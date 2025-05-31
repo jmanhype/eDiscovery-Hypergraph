@@ -1299,6 +1299,6 @@ spec:
 
 ## Next Steps
 
-- Review [Docker Deployment](/deployment/docker) for containerization
+- Review [Docker Deployment](/deployment/docker-deployment) for containerization
 - Check [Examples](/examples) for production configurations
 - See [Support](/support) for troubleshooting help

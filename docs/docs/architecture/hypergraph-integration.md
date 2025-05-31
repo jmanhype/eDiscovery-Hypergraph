@@ -440,4 +440,4 @@ class HypergraphVisualizer {
 - Explore [System Components](/architecture/system-components)
 - Learn about [AI Analysis](/features/ai-analysis) integration
 - Review [Workflow](/features/workflows) capabilities
-- Check [API Documentation](/api/rest) for hypergraph operations
+- Check [API Documentation](/api/rest-api) for hypergraph operations

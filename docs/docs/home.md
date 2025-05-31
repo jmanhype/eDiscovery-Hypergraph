@@ -85,7 +85,7 @@ Ready to transform your eDiscovery process?
   <a href="/getting-started" className="button button--primary button--lg">
     Get Started →
   </a>
-  <a href="/architecture/overview" className="button button--secondary button--lg">
+  <a href="/architecture/architecture-overview" className="button button--secondary button--lg">
     Learn More
   </a>
 </div>

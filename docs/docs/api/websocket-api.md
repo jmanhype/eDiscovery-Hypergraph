@@ -928,7 +928,7 @@ class EncryptedChannel {
 
 ## Next Steps
 
-- Review [REST API](/api/rest) for request-response operations
-- Explore [GraphQL API](/api/graphql) for complex queries
+- Review [REST API](/api/rest-api) for request-response operations
+- Explore [GraphQL API](/api/graphql-api) for complex queries
 - Check [Examples](/examples) for real-world implementations
 - Visit [Support](/support) for troubleshooting help
