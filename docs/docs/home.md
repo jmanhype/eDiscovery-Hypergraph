@@ -82,10 +82,10 @@ Traditional eDiscovery platforms struggle with complex relationships between doc
 Ready to transform your eDiscovery process?
 
 <div className="buttons">
-  <a href="/getting-started" className="button button--primary button--lg">
+  <a href="./getting-started" className="button button--primary button--lg">
     Get Started →
   </a>
-  <a href="/architecture/architecture-overview" className="button button--secondary button--lg">
+  <a href="./architecture/architecture-overview" className="button button--secondary button--lg">
     Learn More
   </a>
 </div>
