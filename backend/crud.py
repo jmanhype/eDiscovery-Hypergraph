@@ -174,7 +174,8 @@ class DocumentCRUD:
     async def _log_action(self, action: str, resource_id: str, details: Dict):
         """Log audit trail - would be injected with user context in real app"""
         # This would get user from request context
-        pass
+        # TODO: Implement audit logging with user context when available
+        logger.debug(f"Action '{action}' performed on resource '{resource_id}' with details: {details}")
 
 
 class CaseCRUD:

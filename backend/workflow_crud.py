@@ -159,8 +159,11 @@ class WorkflowInstanceCRUD:
         if search_params.status:
             query["status"] = search_params.status.value
         if search_params.workflow_type:
-            # We'd need to join with workflow definitions for this
-            pass
+            # TODO: Implement workflow_type filtering by joining with workflow definitions
+            # This requires aggregation pipeline to join with workflow_definitions collection
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning("workflow_type filtering is not yet implemented - requires aggregation pipeline")
         if search_params.triggered_by:
             query["triggered_by"] = search_params.triggered_by
         if search_params.date_from or search_params.date_to:
