@@ -15,7 +15,19 @@ from bson import ObjectId
 from models import User, UserRole, TokenData, Token
 
 # JWT Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    import secrets
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.critical(
+        "SECRET_KEY environment variable is not set! "
+        "Using auto-generated key for development only. "
+        "This is INSECURE for production use. "
+        "Set SECRET_KEY environment variable immediately."
+    )
+    SECRET_KEY = secrets.token_urlsafe(32)
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -251,6 +263,8 @@ async def get_user_by_id(db: AsyncIOMotorDatabase, user_id: str) -> Optional[Use
         if user_doc:
             user_doc["_id"] = str(user_doc["_id"])
             return User(**user_doc)
-    except:
-        pass
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error retrieving user by ID {user_id}: {str(e)}")
     return None
